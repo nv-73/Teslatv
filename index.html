@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesla IPTV Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        :root { --primary: #e50914; --bg: #000; --panel: #141414; --text: #fff; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Navigation Gauche */
+        #navbar { width: 80px; background: #000; display: flex; flex-direction: column; align-items: center; padding-top: 20px; border-right: 1px solid #222; }
+        .nav-item { margin-bottom: 30px; cursor: pointer; text-align: center; opacity: 0.5; transition: 0.3s; font-size: 24px; }
+        .nav-item.active { opacity: 1; color: var(--primary); border-left: 3px solid var(--primary); width: 100%; }
+        .nav-item span { display: block; font-size: 10px; text-transform: uppercase; margin-top: 5px; }
+
+        /* Panneau de liste */
+        #sidebar { width: 350px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #333; }
+        .search-box { padding: 15px; }
+        #search { width: 100%; padding: 12px; border-radius: 4px; border: none; background: #222; color: white; font-size: 16px; }
+        #list-container { flex: 1; overflow-y: auto; }
+        .item { padding: 15px 20px; border-bottom: 1px solid #222; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .item:hover { background: #222; }
+        .item.active { background: #333; border-left: 4px solid var(--primary); }
+
+        /* Lecteur */
+        #player-zone { flex: 1; background: #000; display: flex; flex-direction: column; position: relative; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .overlay-info { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; pointer-events: none; }
+
+        /* Chargement */
+        #loader { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 100; font-size: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="loader">Chargement de votre catalogue...</div>
+
+<nav id="navbar">
+    <div class="nav-item active" onclick="switchTab('live', this)">📺<span>Direct</span></div>
+    <div class="nav-item" onclick="switchTab('vod', this)">🎬<span>Films</span></div>
+    <div class="nav-item" onclick="switchTab('series', this)">🍿<span>Séries</span></div>
+</nav>
+
+<div id="sidebar">
+    <div class="search-box">
+        <input type="text" id="search" placeholder="Rechercher...">
+    </div>
+    <div id="list-container"></div>
+</div>
+
+<div id="player-zone">
+    <div class="overlay-info" id="current-title">Prêt à diffuser</div>
+    <video id="videoPlayer" controls autoplay></video>
+</div>
+
+<script>
+    const CONFIG = {
+        host: "http://pl-ott.com",
+        user: "8576200005",
+        pass: "9637719534"
+    };
+
+    const PROXY = "https://corsproxy.io/?";
+    const M3U_URL = `${CONFIG.host}/get.php?username=${CONFIG.user}&password=${CONFIG.pass}&type=m3u_plus&output=ts`;
+
+    let database = { live: [], vod: [], series: [] };
+    let currentCategory = 'live';
+    const hls = new Hls();
+
+    // 1. Récupération et Tri
+    fetch(PROXY + encodeURIComponent(M3U_URL))
+        .then(res => res.text())
+        .then(data => {
+            parseM3U(data);
+            document.getElementById('loader').style.display = 'none';
+            render();
+        })
+        .catch(() => { document.getElementById('loader').textContent = "Erreur de connexion"; });
+
+    function parseM3U(data) {
+        const lines = data.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('#EXTINF:')) {
+                const info = lines[i];
+                const title = info.split(',')[1] || "Inconnu";
+                const url = lines[i+1]?.trim();
+                const group = (info.match(/group-title="([^"]+)"/) || ["", ""])[1].toUpperCase();
+
+                const entry = { title, url, group };
+
+                // Logique de tri automatique par mots-clés dans les groupes
+                if (group.includes('VOD') || group.includes('MOVIES') || group.includes('FILMS')) {
+                    database.vod.push(entry);
+                } else if (group.includes('SERIES') || group.includes('SÉRIES')) {
+                    database.series.push(entry);
+                } else {
+                    database.live.push(entry);
+                }
+            }
+        }
+    }
+
+    // 2. Affichage
+    function render(filter = "") {
+        const container = document.getElementById('list-container');
+        container.innerHTML = "";
+        
+        const list = database[currentCategory].filter(i => 
+            i.title.toLowerCase().includes(filter.toLowerCase())
+        );
+
+        list.slice(0, 300).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.innerHTML = `<strong>${item.title}</strong><br><small style="color:#666">${item.group}</small>`;
+            div.onclick = () => play(item);
+            container.appendChild(div);
+        });
+    }
+
+    // 3. Gestion des onglets
+    window.switchTab = (type, el) => {
+        currentCategory = type;
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('search').value = "";
+        render();
+    };
+
+    // 4. Lecture
+    function play(item) {
+        document.getElementById('current-title').textContent = item.title;
+        const proxifiedUrl = PROXY + encodeURIComponent(item.url);
+        
+        if (Hls.isSupported()) {
+            hls.loadSource(proxifiedUrl);
+            hls.attachMedia(document.getElementById('videoPlayer'));
+            hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        } else {
+            videoPlayer.src = proxifiedUrl;
+        }
+    }
+
+    // 5. Recherche
+    document.getElementById('search').oninput = (e) => render(e.target.value);
+
+</script>
+</body>
+</html>
