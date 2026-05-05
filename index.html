@@ -3,179 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tesla IPTV Pro</title>
+    <title>Shadeed Web Player</title>
+    <!-- Bibliothèques pour la lecture de flux IPTV (HLS) -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        :root { --primary: #e50914; --bg: #000; --panel: #1a1a1a; --text: #fff; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; }
+        :root { --main-gold: #d4af37; --bg-dark: #0a0a0a; }
+        body { margin: 0; background-color: var(--bg-dark); color: white; font-family: sans-serif; }
         
-        /* Navigation latérale */
-        #navbar { width: 80px; background: #000; display: flex; flex-direction: column; align-items: center; padding-top: 15px; border-right: 1px solid #333; }
-        .nav-item { margin-bottom: 25px; cursor: pointer; text-align: center; opacity: 0.5; font-size: 11px; width: 100%; transition: 0.2s; }
-        .nav-item.active { opacity: 1; color: var(--primary); border-left: 3px solid var(--primary); }
-        .nav-item span { display: block; margin-top: 5px; font-weight: bold; }
-
-        /* Sidebar */
-        #sidebar { width: 350px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #333; }
-        .header-controls { padding: 15px; background: #000; display: flex; flex-direction: column; gap: 10px; }
-        .search-row { display: flex; gap: 8px; }
-        #search { flex: 1; padding: 12px; border-radius: 6px; border: none; background: #222; color: white; font-size: 16px; outline: none; }
+        /* Layout inspiré de activity_live.xml */
+        .container { display: grid; grid-template-columns: 250px 1fr; height: 100vh; }
         
-        /* Bouton Rafraîchir */
-        #refreshBtn { padding: 10px; background: #333; border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 18px; transition: 0.2s; display: flex; align-items: center; justify-content: center; min-width: 50px; }
-        #refreshBtn:active { background: var(--primary); transform: scale(0.95); }
+        .sidebar { background: #111; padding: 20px; border-right: 1px solid #333; }
+        .logo { width: 100%; margin-bottom: 30px; } /* shaDeed_lg.png */
+        
+        .nav-item { 
+            padding: 15px; margin-bottom: 10px; cursor: pointer; 
+            border-radius: 5px; transition: 0.3s;
+        }
+        .nav-item:hover { background: var(--main-gold); color: black; }
 
-        /* Liste */
-        #list-container { flex: 1; overflow-y: auto; }
-        .item { padding: 15px; border-bottom: 1px solid #222; cursor: pointer; transition: 0.2s; }
-        .item:hover { background: #252525; }
-        .item b { display: block; font-size: 14px; margin-bottom: 4px; }
-        .item small { color: #888; font-size: 12px; }
-
-        /* Player */
-        #player-zone { flex: 1; background: #000; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* Loader */
-        #loader { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #222; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Zone Lecteur inspirée de exo_player_view.xml */
+        .player-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; background: black; }
+        video { width: 90%; max-height: 80vh; border: 2px solid #222; }
+        
+        .controls { margin-top: 20px; width: 90%; }
+        input { width: 100%; padding: 10px; background: #222; border: 1px solid #444; color: white; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spinner"></div>
-    <p id="stats" style="margin-top: 20px; color: #888; font-size: 14px;">Connexion au serveur IPTV...</p>
-</div>
+<div class="container">
+    <aside class="sidebar">
+        <h2 style="color:var(--main-gold)">SHADEED</h2> <!-- Logo textuel temporaire[cite: 1] -->
+        <div class="nav-item">LIVE TV</div> <!-- activity_live.xml[cite: 1] -->
+        <div class="nav-item">MOVIES</div> <!-- activity_movie.xml[cite: 1] -->
+        <div class="nav-item">SERIES</div> <!-- activity_series.xml[cite: 1] -->
+        <div class="nav-item">SETTINGS</div> <!-- activity_setting.xml[cite: 1] -->
+    </aside>
 
-<nav id="navbar">
-    <div class="nav-item active" onclick="switchTab('all', this)"><span>TOUT</span></div>
-    <div class="nav-item" onclick="switchTab('live', this)"><span>DIRECT</span></div>
-    <div class="nav-item" onclick="switchTab('vod', this)"><span>VOD</span></div>
-    <div class="nav-item" onclick="switchTab('series', this)"><span>SERIES</span></div>
-</nav>
-
-<div id="sidebar">
-    <div class="header-controls">
-        <div class="search-row">
-            <input type="text" id="search" placeholder="Rechercher...">
-            <button id="refreshBtn" title="Rafraîchir la liste" onclick="refreshData()">🔄</button>
+    <main class="player-zone">
+        <video id="video" controls></video>
+        
+        <div class="controls">
+            <p>Collez votre lien de flux (M3U8) ici :</p>
+            <input type="text" id="streamUrl" placeholder="https://exemple.com/flux.m3u8" 
+                   onchange="playStream(this.value)">
         </div>
-    </div>
-    <div id="list-container"></div>
-</div>
-
-<div id="player-zone">
-    <video id="videoPlayer" controls autoplay></video>
+    </main>
 </div>
 
 <script>
-    const CONFIG = {
-        host: "http://pl-ott.com",
-        user: "8576200005",
-        pass: "9637719534"
-    };
-
-    const PROXY = "https://api.allorigins.win/raw?url=";
-    const M3U_URL = `${CONFIG.host}/get.php?username=${CONFIG.user}&password=${CONFIG.pass}&type=m3u_plus&output=ts`;
-
-    let database = { all: [], live: [], vod: [], series: [] };
-    let currentCategory = 'all';
-    const hls = new Hls();
-
-    async function loadData() {
-        const stats = document.getElementById('stats');
-        const loader = document.getElementById('loader');
-        
-        loader.style.display = 'flex';
-        stats.textContent = "Téléchargement de la playlist...";
-        
-        // Reset database
-        database = { all: [], live: [], vod: [], series: [] };
-
-        try {
-            const res = await fetch(PROXY + encodeURIComponent(M3U_URL));
-            const data = await res.text();
-            
-            const lines = data.split('\n');
-            let current = null;
-
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.startsWith('#EXTINF:')) {
-                    const title = line.split(',')[1] || "Sans titre";
-                    const group = (line.match(/group-title="([^"]+)"/i) || ["", "Général"])[1];
-                    current = { title, group };
-                } else if (line.startsWith('http') && current) {
-                    current.url = line;
-                    const g = current.group.toUpperCase();
-                    
-                    database.all.push(current);
-                    
-                    if (g.includes('VOD') || g.includes('MOVIE') || g.includes('FILM') || g.includes('CINEMA')) {
-                        database.vod.push(current);
-                    } else if (g.includes('SERIE') || g.includes('EPISOD') || g.includes('SEASON')) {
-                        database.series.push(current);
-                    } else {
-                        database.live.push(current);
-                    }
-                    current = null;
-                }
-            });
-
-            stats.textContent = `${database.all.length} éléments chargés.`;
-            setTimeout(() => loader.style.display = 'none', 800);
-            render();
-        } catch (e) {
-            stats.textContent = "Erreur. Vérifiez votre connexion ou vos accès.";
-            stats.style.color = "red";
-        }
-    }
-
-    function render(query = "") {
-        const container = document.getElementById('list-container');
-        container.innerHTML = "";
-        const list = database[currentCategory].filter(i => i.title.toLowerCase().includes(query.toLowerCase()));
-
-        list.slice(0, 400).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'item';
-            div.innerHTML = `<b>${item.title}</b><small>${item.group}</small>`;
-            div.onclick = () => playStream(item.url);
-            container.appendChild(div);
-        });
-    }
-
     function playStream(url) {
-        const video = document.getElementById('videoPlayer');
+        const video = document.getElementById('video');
         if (Hls.isSupported()) {
+            const hls = new Hls();
             hls.loadSource(url);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-        } else {
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = url;
+            video.addEventListener('loadedmetadata', () => video.play());
         }
     }
-
-    function switchTab(type, el) {
-        currentCategory = type;
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        el.classList.add('active');
-        document.getElementById('search').value = "";
-        render();
-    }
-
-    function refreshData() {
-        if(confirm("Voulez-vous rafraîchir la playlist ?")) {
-            loadData();
-        }
-    }
-
-    document.getElementById('search').oninput = (e) => render(e.target.value);
-
-    // Démarrage automatique
-    loadData();
 </script>
+
 </body>
 </html>
