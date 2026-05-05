@@ -3,31 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tesla IPTV Pro</title>
+    <title>Tesla IPTV Player Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root { --primary: #e50914; --bg: #000; --panel: #141414; --text: #fff; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
+        /* Navigation latérale gauche */
         #navbar { width: 90px; background: #000; display: flex; flex-direction: column; align-items: center; padding-top: 20px; border-right: 1px solid #222; }
-        .nav-item { margin-bottom: 25px; cursor: pointer; text-align: center; opacity: 0.4; transition: 0.3s; width: 100%; padding: 10px 0; }
+        .nav-item { margin-bottom: 30px; cursor: pointer; text-align: center; opacity: 0.4; transition: 0.3s; width: 100%; }
         .nav-item.active { opacity: 1; color: var(--primary); border-left: 4px solid var(--primary); }
-        .nav-item span { display: block; font-size: 11px; margin-top: 5px; }
+        .nav-item span { display: block; font-size: 10px; text-transform: uppercase; margin-top: 5px; font-weight: bold; }
 
-        #sidebar { width: 380px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #333; }
+        /* Liste des chaînes/films */
+        #sidebar { width: 350px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid #333; }
         .search-box { padding: 15px; background: #000; }
-        #search { width: 100%; padding: 12px; border-radius: 5px; border: 1px solid #333; background: #222; color: white; font-size: 16px; }
-        
+        #search { width: 100%; padding: 12px; border-radius: 5px; border: none; background: #222; color: white; font-size: 16px; outline: none; }
         #list-container { flex: 1; overflow-y: auto; }
-        .item { padding: 15px 20px; border-bottom: 1px solid #222; cursor: pointer; }
+        .item { padding: 15px 20px; border-bottom: 1px solid #222; cursor: pointer; font-size: 14px; }
         .item:hover { background: #222; }
-        .item.active { background: #333; }
+        .item.active { background: #333; border-left: 4px solid var(--primary); }
 
-        #player-zone { flex: 1; background: #000; display: flex; flex-direction: column; }
-        video { width: 100%; height: 100%; }
-        
+        /* Zone Vidéo */
+        #player-zone { flex: 1; background: #000; display: flex; flex-direction: column; position: relative; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .overlay-title { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 4px; font-size: 12px; color: #aaa; pointer-events: none; }
+
+        /* Écran de chargement */
         #loader { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -35,13 +39,13 @@
 
 <div id="loader">
     <div class="spinner"></div>
-    <p id="load-status">Analyse de la playlist...</p>
+    <p id="load-status" style="margin-top: 20px;">Initialisation des catalogues...</p>
 </div>
 
 <nav id="navbar">
-    <div class="nav-item active" onclick="switchTab('live', this)">📺<span>DIRECT</span></div>
-    <div class="nav-item" onclick="switchTab('vod', this)">🎬<span>FILMS</span></div>
-    <div class="nav-item" onclick="switchTab('series', this)">🍿<span>SERIES</span></div>
+    <div class="nav-item active" onclick="switchTab('live', this)"><span>Direct</span></div>
+    <div class="nav-item" onclick="switchTab('vod', this)"><span>Films</span></div>
+    <div class="nav-item" onclick="switchTab('series', this)"><span>Séries</span></div>
 </nav>
 
 <div id="sidebar">
@@ -52,6 +56,7 @@
 </div>
 
 <div id="player-zone">
+    <div class="overlay-title" id="now-playing">Aucun média sélectionné</div>
     <video id="videoPlayer" controls autoplay></video>
 </div>
 
@@ -62,66 +67,62 @@
         pass: "9637719534"
     };
 
-    // Utilisation d'un autre proxy si corsproxy.io sature
+    // Proxy robuste pour contourner les blocages Tesla
     const PROXY = "https://api.allorigins.win/raw?url=";
-    const M3U_URL = `${CONFIG.host}/get.php?username=${CONFIG.user}&password=${CONFIG.pass}&type=m3u_plus&output=m3u8`;
+    const M3U_URL = `${CONFIG.host}/get.php?username=${CONFIG.user}&password=${CONFIG.pass}&type=m3u_plus&output=ts`;
 
     let database = { live: [], vod: [], series: [] };
     let currentCategory = 'live';
     const hls = new Hls();
 
-    async function loadData() {
+    async function start() {
         try {
             const response = await fetch(PROXY + encodeURIComponent(M3U_URL));
+            if (!response.ok) throw new Error("Serveur injoignable");
             const data = await response.text();
-            parseM3U(data);
+            parse(data);
             document.getElementById('loader').style.display = 'none';
             render();
-        } catch (error) {
-            document.getElementById('load-status').textContent = "Erreur : " + error.message;
+        } catch (e) {
+            document.getElementById('load-status').textContent = "Erreur de connexion : Vérifiez vos accès.";
+            document.getElementById('load-status').style.color = "red";
         }
     }
 
-    function parseM3U(data) {
+    function parse(data) {
         const lines = data.split('\n');
-        let currentItem = null;
+        let tempItem = null;
 
         lines.forEach(line => {
             line = line.trim();
             if (line.startsWith('#EXTINF:')) {
-                const title = line.split(',')[1] || "Sans nom";
-                const group = (line.match(/group-title="([^"]+)"/i) || ["", ""])[1];
-                currentItem = { title, group };
-            } else if (line.startsWith('http') && currentItem) {
-                currentItem.url = line;
-                const g = currentItem.group.toUpperCase();
-                
-                // Logique de tri plus précise
-                if (g.includes('VOD') || g.includes('MOVIES') || g.includes('FILMS') || g.includes('CINEMA')) {
-                    database.vod.push(currentItem);
-                } else if (g.includes('SERIES') || g.includes('SÉRIES') || g.includes('EPISODE')) {
-                    database.series.push(currentItem);
+                const title = line.split(',')[1] || "Sans titre";
+                const group = (line.match(/group-title="([^"]+)"/i) || ["", ""])[1].toUpperCase();
+                tempItem = { title, group };
+            } else if (line.startsWith('http') && tempItem) {
+                tempItem.url = line;
+                if (tempItem.group.includes('VOD') || tempItem.group.includes('MOVIE') || tempItem.group.includes('FILM')) {
+                    database.vod.push(tempItem);
+                } else if (tempItem.group.includes('SERIE')) {
+                    database.series.push(tempItem);
                 } else {
-                    database.live.push(currentItem);
+                    database.live.push(tempItem);
                 }
-                currentItem = null;
+                tempItem = null;
             }
         });
     }
 
-    function render(filter = "") {
+    function render(query = "") {
         const container = document.getElementById('list-container');
         container.innerHTML = "";
-        
-        const items = database[currentCategory].filter(i => 
-            i.title.toLowerCase().includes(filter.toLowerCase())
-        );
+        const filtered = database[currentCategory].filter(i => i.title.toLowerCase().includes(query.toLowerCase()));
 
-        items.slice(0, 500).forEach(item => {
+        filtered.slice(0, 400).forEach(item => {
             const div = document.createElement('div');
             div.className = 'item';
             div.innerHTML = `<strong>${item.title}</strong><br><small style="color:#777">${item.group}</small>`;
-            div.onclick = () => play(item.url);
+            div.onclick = () => play(item);
             container.appendChild(div);
         });
     }
@@ -134,21 +135,22 @@
         render();
     }
 
-    function play(url) {
-        // Certains flux nécessitent aussi le proxy pour la lecture sur Tesla
-        const finalUrl = url.startsWith('https') ? url : PROXY + encodeURIComponent(url);
-        
+    function play(item) {
+        document.getElementById('now-playing').textContent = item.title;
+        const video = document.getElementById('videoPlayer');
+        // On essaie le flux direct, si ça bloque le navigateur basculera
         if (Hls.isSupported()) {
-            hls.loadSource(url); // On tente sans proxy d'abord pour la vidéo
-            hls.attachMedia(document.getElementById('videoPlayer'));
+            hls.loadSource(item.url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
         } else {
-            document.getElementById('videoPlayer').src = url;
+            video.src = item.url;
         }
     }
 
-    document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
-
-    loadData();
+    document.getElementById('search').oninput = (e) => render(e.target.value);
+    
+    start();
 </script>
 </body>
 </html>
