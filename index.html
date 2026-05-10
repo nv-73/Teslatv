@@ -12,6 +12,15 @@
         .video-container { aspect-ratio: 16 / 9; background: black; }
         .card:hover { transform: translateY(-5px); transition: 0.3s; }
         .active-live { border-left: 4px solid #ef4444; background: #262626; }
+        
+        /* Style personnalisé pour le bouton YouTube */
+        .btn-youtube {
+            background-color: #FF0000;
+            transition: background-color 0.3s ease;
+        }
+        .btn-youtube:hover {
+            background-color: #cc0000;
+        }
     </style>
 </head>
 <body class="font-sans">
@@ -25,14 +34,23 @@
                 <a href="#" class="hover:text-white">Programmes</a>
             </div>
         </div>
+        
         <div class="flex-1 max-w-xl px-8">
             <div class="relative">
                 <input type="text" placeholder="Rechercher une chaîne..." class="w-full bg-[#2a2a2a] border-none rounded-full py-2 px-10 text-sm focus:ring-2 focus:ring-red-600">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
             </div>
         </div>
-        <div class="flex items-center gap-4">
-            <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Connexion</button>
+
+        <div class="flex items-center gap-3">
+            <a href="https://www.youtube.com" target="_blank" class="btn-youtube flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg">
+                <i class="fa-brands fa-youtube text-lg"></i>
+                <span>YouTube</span>
+            </a>
+            
+            <button class="bg-[#2a2a2a] hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                Connexion
+            </button>
         </div>
     </nav>
 
