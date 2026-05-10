@@ -3,124 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTV - Clone Pleyr</title>
+    <title>WebTV - Lecteur M3U</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Hls.js pour lire les flux IPTV standard -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { background-color: #0f0f0f; color: white; }
-        .sidebar { background-color: #1a1a1a; }
-        .video-container { aspect-ratio: 16 / 9; background: black; }
+        body { background-color: #0f0f0f; color: white; overflow-x: hidden; }
+        .sidebar { background-color: #1a1a1a; transition: all 0.3s; }
+        .video-container { aspect-ratio: 16 / 9; background: black; position: relative; }
         .card:hover { transform: translateY(-5px); transition: 0.3s; }
-        .active-live { border-left: 4px solid #ef4444; background: #262626; }
-        
-        /* Style personnalisé pour le bouton YouTube */
-        .btn-youtube {
-            background-color: #FF0000;
-            transition: background-color 0.3s ease;
-        }
-        .btn-youtube:hover {
-            background-color: #cc0000;
-        }
+        .btn-youtube { background-color: #FF0000; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        #video-player { width: 100%; height: 100%; }
     </style>
 </head>
 <body class="font-sans">
 
+    <!-- MODALE CONNEXION M3U -->
+    <div id="m3uModal" class="modal flex items-center justify-center">
+        <div class="bg-[#1a1a1a] p-8 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl">
+            <h2 class="text-2xl font-bold mb-4 text-center">Charger votre Playlist M3U</h2>
+            <p class="text-gray-400 text-sm mb-6 text-center">Entrez l'URL de votre playlist pour accéder à vos chaînes.</p>
+            <input type="text" id="m3uUrl" placeholder="https://exemple.com/playlist.m3u" 
+                   class="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-3 mb-4 focus:outline-none focus:border-red-600">
+            <button onclick="loadM3U()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition">
+                Se connecter à la playlist
+            </button>
+            <button onclick="toggleModal()" class="w-full mt-3 text-gray-500 text-sm hover:text-white">Annuler</button>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
     <nav class="flex items-center justify-between px-6 py-3 bg-[#121212] sticky top-0 z-50 border-b border-gray-800">
         <div class="flex items-center gap-8">
             <h1 class="text-2xl font-bold text-red-600 tracking-tighter">WEB<span class="text-white">TV</span></h1>
-            <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
-                <a href="#" class="hover:text-white">Parcourir</a>
-                <a href="#" class="hover:text-white">Directs</a>
-                <a href="#" class="hover:text-white">Programmes</a>
-            </div>
         </div>
         
-        <div class="flex-1 max-w-xl px-8">
-            <div class="relative">
-                <input type="text" placeholder="Rechercher une chaîne..." class="w-full bg-[#2a2a2a] border-none rounded-full py-2 px-10 text-sm focus:ring-2 focus:ring-red-600">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
-            </div>
-        </div>
-
         <div class="flex items-center gap-3">
-            <a href="https://www.youtube.com" target="_blank" class="btn-youtube flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg">
-                <i class="fa-brands fa-youtube text-lg"></i>
-                <span>YouTube</span>
+            <a href="https://www.youtube.com" target="_blank" class="btn-youtube flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-bold">
+                <i class="fa-brands fa-youtube"></i> <span>YouTube</span>
             </a>
-            
-            <button class="bg-[#2a2a2a] hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
-                Connexion
+            <!-- Bouton Connexion qui ouvre la modale -->
+            <button onclick="toggleModal()" id="connectBtn" class="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
+                Connexion M3U
             </button>
         </div>
     </nav>
 
     <div class="flex">
-        <aside class="sidebar w-64 hidden lg:block h-[calc(100vh-64px)] sticky top-16 overflow-y-auto">
-            <div class="p-4 text-xs font-bold text-gray-500 uppercase">Chaînes recommandées</div>
-            <div class="flex flex-col">
-                <div class="flex items-center gap-3 p-3 active-live cursor-pointer">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 to-red-600"></div>
-                    <div class="flex-1">
-                        <div class="text-sm font-semibold">Streamer_TV</div>
-                        <div class="text-xs text-gray-400">Gaming & Fun</div>
-                    </div>
-                    <div class="text-xs flex items-center gap-1"><span class="w-2 h-2 bg-red-600 rounded-full"></span> 1.2k</div>
-                </div>
-                <div class="flex items-center gap-3 p-3 hover:bg-[#262626] cursor-pointer">
-                    <div class="w-10 h-10 rounded-full bg-blue-500"></div>
-                    <div class="flex-1">
-                        <div class="text-sm font-semibold">News24</div>
-                        <div class="text-xs text-gray-400">Actualités</div>
-                    </div>
-                    <div class="text-xs text-gray-400">Hors-ligne</div>
+        <!-- BARRE LATÉRALE : LISTE DES CHAÎNES -->
+        <aside class="sidebar w-72 h-[calc(100vh-64px)] sticky top-16 overflow-y-auto border-r border-gray-800">
+            <div class="p-4 text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                <span>Mes Chaînes</span>
+                <span id="channelCount" class="bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px]">0</span>
+            </div>
+            <div id="channelList" class="flex flex-col">
+                <div class="p-6 text-center text-gray-500 text-sm italic">
+                    Connectez-vous pour voir vos chaînes...
                 </div>
             </div>
         </aside>
 
+        <!-- CONTENU PRINCIPAL -->
         <main class="flex-1 p-6">
             <div class="video-container rounded-xl overflow-hidden shadow-2xl mb-6">
-                <iframe 
-                    width="100%" 
-                    height="100%" 
-                    src="https://www.youtube.com/embed/live_stream?channel=UC4R8DWoMoI7CAwX8_LjQHig" 
-                    frameborder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowfullscreen>
-                </iframe>
+                <!-- Lecteur Video HTML5 -->
+                <video id="video-player" controls poster="https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=1200"></video>
             </div>
 
-            <div class="flex justify-between items-start mb-8">
+            <div class="flex justify-between items-start">
                 <div>
-                    <h2 class="text-2xl font-bold">GRAND DIRECT : Le tournoi de l'été</h2>
-                    <p class="text-gray-400">Diffusé par <span class="text-red-500 font-semibold cursor-pointer">WebTV_Official</span></p>
-                </div>
-                <div class="flex gap-3">
-                    <button class="bg-[#2a2a2a] p-2 px-4 rounded-lg hover:bg-gray-700 transition"><i class="fa-solid fa-share mr-2"></i>Partager</button>
-                    <button class="bg-[#2a2a2a] p-2 px-4 rounded-lg hover:bg-gray-700 transition"><i class="fa-solid fa-heart text-red-500 mr-2"></i>Suivre</button>
-                </div>
-            </div>
-
-            <h3 class="text-xl font-bold mb-4">À découvrir ensuite</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <div class="card cursor-pointer">
-                    <div class="relative rounded-lg overflow-hidden mb-2">
-                        <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500" class="w-full h-40 object-cover">
-                        <span class="absolute bottom-2 right-2 bg-black/80 text-[10px] px-2 py-1 rounded">24:05</span>
-                    </div>
-                    <h4 class="font-bold text-sm line-clamp-2">Best-of de la semaine : Les meilleurs moments</h4>
-                    <p class="text-xs text-gray-400 mt-1">15k vues • il y a 2 jours</p>
-                </div>
-                <div class="card cursor-pointer">
-                    <div class="relative rounded-lg overflow-hidden mb-2">
-                        <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=500" class="w-full h-40 object-cover">
-                        <span class="absolute bottom-2 right-2 bg-black/80 text-[10px] px-2 py-1 rounded">1:12:00</span>
-                    </div>
-                    <h4 class="font-bold text-sm line-clamp-2">Documentaire : L'évolution de l'eSport</h4>
-                    <p class="text-xs text-gray-400 mt-1">45k vues • il y a 5 heures</p>
+                    <h2 id="currentChannelName" class="text-2xl font-bold italic text-gray-500">Aucune chaîne sélectionnée</h2>
+                    <p class="text-gray-400">Lecteur Web TV Universel</p>
                 </div>
             </div>
         </main>
     </div>
 
+    <script>
+        const modal = document.getElementById('m3uModal');
+        const video = document.getElementById('video-player');
+        const hls = new Hls();
+
+        function toggleModal() {
+            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        async function loadM3U() {
+            const url = document.getElementById('m3uUrl').value;
+            if (!url) return alert("Veuillez entrer une URL");
+
+            try {
+                const response = await fetch(url);
+                const data = await response.text();
+                parseM3U(data);
+                toggleModal();
+                document.getElementById('connectBtn').innerText = "Playlist Connectée";
+                document.getElementById('connectBtn').classList.replace('bg-white', 'bg-green-600');
+                document.getElementById('connectBtn').classList.add('text-white');
+            } catch (error) {
+                alert("Erreur lors du chargement : Vérifiez l'URL ou les droits CORS");
+            }
+        }
+
+        function parseM3U(content) {
+            const lines = content.split('\n');
+            const channels = [];
+            let currentChannel = {};
+
+            lines.forEach(line => {
+                if (line.startsWith('#EXTINF:')) {
+                    const name = line.split(',')[1];
+                    currentChannel = { name: name.trim() };
+                } else if (line.startsWith('http')) {
+                    currentChannel.url = line.trim();
+                    channels.push(currentChannel);
+                }
+            });
+
+            displayChannels(channels);
+        }
+
+        function displayChannels(channels) {
+            const list = document.getElementById('channelList');
+            const count = document.getElementById('channelCount');
+            list.innerHTML = "";
+            count.innerText = channels.length;
+
+            channels.forEach(channel => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 p-3 hover:bg-[#262626] cursor-pointer border-b border-gray-900/50";
+                div.innerHTML = `
+                    <div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-xs font-bold">TV</div>
+                    <div class="text-sm font-medium truncate">${channel.name}</div>
+                `;
+                div.onclick = () => playStream(channel.url, channel.name);
+                list.appendChild(div);
+            });
+        }
+
+        function playStream(url, name) {
+            document.getElementById('currentChannelName').innerText = name;
+            document.getElementById('currentChannelName').classList.remove('italic', 'text-gray-500');
+
+            if (Hls.isSupported()) {
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                });
+            }
+        }
+    </script>
 </body>
 </html>
