@@ -3,109 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTV Premium - Xtream Player</title>
+    <title>PLEYR - Web TV Player</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        :root { --primary: #ef4444; --bg: #0a0a0a; --sidebar: #121212; --card: #1e1e1e; }
-        body { background-color: var(--bg); color: white; overflow: hidden; }
-        ::-webkit-scrollbar { width: 6px; }
+        :root { --accent: #ff0000; --bg: #050505; --panel: #111111; }
+        body { background-color: var(--bg); color: white; height: 100vh; overflow: hidden; }
+        
+        /* Personnalisation Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .sidebar { background-color: var(--sidebar); height: calc(100vh - 64px); }
-        .video-aspect { aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; backdrop-filter: blur(5px); }
-        .channel-item { transition: 0.2s; border-radius: 8px; margin: 2px 8px; }
-        .channel-item:hover { background: #262626; transform: translateX(5px); }
-        .active-ch { background: #262626; border-left: 4px solid var(--primary); }
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: none; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        .video-box { aspect-ratio: 16/9; background: #000; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); overflow: hidden; }
+        .sidebar-ch { background: var(--panel); border-right: 1px solid #222; }
+        .ch-card { transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin: 4px 10px; border-radius: 12px; }
+        .ch-card:hover { background: #1a1a1a; transform: scale(1.02); }
+        .ch-active { background: #222 !important; border-left: 3px solid var(--accent); }
+        
+        .modal-blur { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; backdrop-filter: blur(10px); }
+        .input-dark { background: #1a1a1a; border: 1px solid #333; transition: 0.3s; }
+        .input-dark:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 10px rgba(255,0,0,0.2); }
+        
+        .shimmer { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     </style>
 </head>
-<body>
+<body class="flex flex-col font-sans">
 
-    <!-- MODALE DE CONNEXION XTREAM -->
-    <div id="loginModal" class="modal flex items-center justify-center">
-        <div class="bg-[#1a1a1a] p-8 rounded-3xl w-full max-w-md border border-gray-800">
-            <div class="text-center mb-8">
-                <div class="inline-block p-4 bg-red-600/10 rounded-full mb-4">
-                    <i class="fa-solid fa-server text-3xl text-red-600"></i>
+    <!-- MODAL CONNEXION -->
+    <div id="loginModal" class="modal-blur flex items-center justify-center">
+        <div class="bg-[#111] p-10 rounded-3xl w-[450px] border border-white/10 shadow-2xl">
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.4)] mb-4">
+                    <i class="fa-solid fa-play text-4xl text-white"></i>
                 </div>
-                <h2 class="text-2xl font-bold">Connexion Xtream</h2>
-                <p class="text-gray-500 text-sm mt-2">Accédez à vos bouquets TV en direct</p>
+                <h2 class="text-3xl font-black italic tracking-tighter">CONFIGURER XTREAM</h2>
             </div>
+            
             <div class="space-y-4">
-                <input type="text" id="host" placeholder="http://nom-du-serveur.com:8080" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
-                <input type="text" id="user" placeholder="Nom d'utilisateur" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
-                <input type="password" id="pass" placeholder="Mot de passe" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
-                <button onclick="connect()" id="loginBtn" class="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-bold transition flex justify-center items-center gap-2">
-                    <span>Se connecter</span>
-                    <div id="btnLoader" class="loader"></div>
+                <input type="text" id="host" placeholder="Ex: http://pl-ott.com:80" class="w-full input-dark p-4 rounded-xl text-sm" value="http://pl-ott.com:80">
+                <input type="text" id="user" placeholder="Username" class="w-full input-dark p-4 rounded-xl text-sm" value="8576200005">
+                <input type="password" id="pass" placeholder="Password" class="w-full input-dark p-4 rounded-xl text-sm" value="9637719534">
+                
+                <button onclick="connectXtream()" id="btnConn" class="w-full bg-red-600 hover:bg-red-700 h-14 rounded-xl font-bold transition flex items-center justify-center gap-3">
+                    <span>LANCER LE FLUX</span>
                 </button>
-                <p class="text-[10px] text-gray-600 text-center uppercase tracking-widest mt-4">Sécurisé par WebTV Protocol</p>
+                <p class="text-center text-[10px] text-gray-600 uppercase tracking-widest mt-2">Accès direct sécurisé</p>
             </div>
         </div>
     </div>
 
-    <!-- NAVBAR -->
-    <nav class="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-[#0f0f0f]">
-        <div class="flex items-center gap-4">
-            <span class="text-2xl font-black text-red-600 tracking-tighter">PLEYR<span class="text-white">CLONE</span></span>
-        </div>
-        <div class="hidden md:flex flex-1 max-w-md mx-10">
-            <div class="relative w-full">
-                <input type="text" id="search" onkeyup="filterChannels()" placeholder="Rechercher une chaîne..." class="w-full bg-[#1a1a1a] rounded-full py-2 px-10 text-sm border border-gray-800 focus:border-red-600 outline-none">
-                <i class="fa-solid fa-search absolute left-4 top-3 text-gray-600 text-xs"></i>
+    <!-- TOPBAR -->
+    <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 bg-black">
+        <div class="flex items-center gap-10">
+            <h1 class="text-2xl font-black tracking-tighter italic text-red-600">PLEYR<span class="text-white">.LIVE</span></h1>
+            <div class="relative hidden lg:block">
+                <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                <input type="text" id="search" onkeyup="filterList()" placeholder="Rechercher une chaine..." class="bg-[#111] border-none rounded-full py-2.5 pl-10 pr-6 text-xs w-[350px] focus:ring-1 focus:ring-red-600 transition-all">
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <a href="https://youtube.com" target="_blank" class="bg-red-600 p-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2">
-                <i class="fa-brands fa-youtube"></i> YOUTUBE
-            </a>
-            <button onclick="document.getElementById('loginModal').style.display='flex'" class="bg-white text-black p-2 px-4 rounded-lg text-xs font-bold hover:bg-gray-200">
-                <i class="fa-solid fa-plug mr-1"></i> SERVEUR
+        
+        <div class="flex items-center gap-4">
+            <a href="https://youtube.com" target="_blank" class="text-gray-400 hover:text-white transition"><i class="fa-brands fa-youtube text-xl"></i></a>
+            <button onclick="document.getElementById('loginModal').style.display='flex'" class="bg-white/10 hover:bg-white/20 p-2.5 rounded-xl transition">
+                <i class="fa-solid fa-gear"></i>
             </button>
         </div>
-    </nav>
+    </header>
 
-    <div class="flex">
-        <!-- SIDEBAR -->
-        <aside class="sidebar w-80 flex flex-col">
-            <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-[#161616]">
-                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Chaînes Live</span>
-                <span id="chCount" class="text-[10px] bg-red-600/20 text-red-500 px-2 py-1 rounded">0</span>
+    <div class="flex flex-1 overflow-hidden">
+        <!-- LISTE DES CHAINES -->
+        <aside class="sidebar-ch w-[380px] flex flex-col">
+            <div class="p-5 flex justify-between items-center bg-black/30">
+                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-500">Bouquet Live</h3>
+                <span id="badgeCount" class="bg-red-600/10 text-red-500 px-3 py-1 rounded-full text-[10px] font-bold">0 chaines</span>
             </div>
-            <div id="channelList" class="flex-1 overflow-y-auto py-2">
-                <div class="p-10 text-center text-gray-600">
-                    <i class="fa-solid fa-tv mb-4 text-4xl block opacity-20"></i>
-                    <p class="text-sm italic">Aucune chaîne chargée</p>
+            <div id="list" class="flex-1 overflow-y-auto pt-2 pb-10">
+                <!-- Les chaines apparaissent ici -->
+                <div class="p-20 text-center opacity-30">
+                    <i class="fa-solid fa-satellite-dish text-5xl mb-4"></i>
+                    <p class="text-xs">Initialisation requise</p>
                 </div>
             </div>
         </aside>
 
-        <!-- PLAYER AREA -->
-        <main class="flex-1 p-6 h-[calc(100vh-64px)] overflow-y-auto">
-            <div class="max-w-5xl mx-auto">
-                <div class="video-aspect mb-6">
-                    <video id="mainPlayer" controls class="w-full h-full"></video>
+        <!-- LECTEUR PRINCIPAL -->
+        <main class="flex-1 p-8 bg-black/20 overflow-y-auto">
+            <div class="max-w-6xl mx-auto">
+                <div class="video-box mb-8">
+                    <video id="player" controls class="w-full h-full"></video>
                 </div>
 
-                <div class="flex items-start justify-between">
-                    <div class="flex items-center gap-5">
-                        <div id="chLogo" class="w-20 h-20 bg-[#1a1a1a] border border-gray-800 rounded-2xl flex items-center justify-center p-2">
-                            <i class="fa-solid fa-satellite-dish text-3xl text-gray-700"></i>
-                        </div>
-                        <div>
-                            <h1 id="chTitle" class="text-3xl font-bold">Prêt à diffuser</h1>
-                            <p id="chCat" class="text-gray-500 flex items-center gap-2">
-                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                Système opérationnel • API Xtream
-                            </p>
+                <div class="flex items-start gap-8">
+                    <div id="currentLogo" class="w-24 h-24 bg-[#111] border border-white/5 rounded-2xl flex items-center justify-center p-3">
+                        <i class="fa-solid fa-tv text-4xl text-gray-800"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 id="currentName" class="text-4xl font-black italic tracking-tighter mb-2">PRÊT À DIFFUSER</h2>
+                        <div class="flex items-center gap-4 text-xs font-bold text-gray-500 uppercase">
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span> STREAM EN DIRECT</span>
+                            <span>•</span>
+                            <span id="currentCat">XTREAM API PROTOCOL</span>
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center border border-gray-800 hover:text-red-500"><i class="fa-solid fa-heart"></i></button>
-                        <button class="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center border border-gray-800 hover:text-blue-500"><i class="fa-solid fa-share-nodes"></i></button>
+                    <div class="flex gap-3">
+                        <button class="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition flex items-center justify-center"><i class="fa-solid fa-heart"></i></button>
+                        <button class="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition flex items-center justify-center"><i class="fa-solid fa-share-nodes"></i></button>
                     </div>
                 </div>
             </div>
@@ -113,98 +119,97 @@
     </div>
 
     <script>
+        let player = document.getElementById('player');
         let hls = new Hls();
         let allChannels = [];
-        const video = document.getElementById('mainPlayer');
 
-        async function connect() {
-            const host = document.getElementById('host').value;
-            const user = document.getElementById('user').value;
-            const pass = document.getElementById('pass').value;
-            const btn = document.getElementById('loginBtn');
-            const loader = document.getElementById('btnLoader');
+        // Lancement auto de la modale si aucun accès
+        window.onload = () => { document.getElementById('loginModal').style.display = 'flex'; };
 
-            if(!host || !user || !pass) return alert("Veuillez remplir tous les champs.");
+        async function connectXtream() {
+            let host = document.getElementById('host').value.trim();
+            const user = document.getElementById('user').value.trim();
+            const pass = document.getElementById('pass').value.trim();
+            const btn = document.getElementById('btnConn');
+
+            if(!host || !user || !pass) return alert("Champs manquants");
+            if(host.endsWith('/')) host = host.slice(0, -1);
 
             btn.disabled = true;
-            loader.style.display = "block";
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> CONNEXION...';
 
-            // Construction de l'URL API Xtream
-            const url = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+            const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
 
             try {
-                // Utilisation d'un proxy pour éviter les erreurs CORS sur GitHub
-                const proxy = "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+                // On utilise AllOrigins pour bypasser le CORS
+                const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(api)}`;
                 const response = await fetch(proxy);
-                const result = await response.json();
-                const data = JSON.parse(result.contents);
+                const json = await response.json();
+                const data = JSON.parse(json.contents);
 
-                if(data.error) throw new Error();
+                if(!Array.isArray(data)) throw new Error("Identifiants ou Host invalides");
 
                 allChannels = data;
-                renderChannels(allChannels, host, user, pass);
                 document.getElementById('loginModal').style.display = 'none';
-            } catch (e) {
-                alert("Erreur de connexion. Vérifiez l'URL du serveur ou vos accès.");
+                renderList(allChannels, host, user, pass);
+                
+            } catch (err) {
+                alert("ERREUR : " + err.message);
             } finally {
                 btn.disabled = false;
-                loader.style.display = "none";
+                btn.innerHTML = 'LANCER LE FLUX';
             }
         }
 
-        function renderChannels(channels, host, user, pass) {
-            const list = document.getElementById('channelList');
-            document.getElementById('chCount').innerText = channels.length;
-            list.innerHTML = "";
+        function renderList(channels, host, user, pass) {
+            const listDiv = document.getElementById('list');
+            document.getElementById('badgeCount').innerText = channels.length + " chaines";
+            listDiv.innerHTML = "";
 
-            channels.slice(0, 500).forEach(ch => {
-                const streamUrl = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
-                const div = document.createElement('div');
-                div.className = "channel-item p-3 cursor-pointer flex items-center gap-3";
-                div.innerHTML = `
-                    <div class="w-10 h-10 bg-black rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-800">
-                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-[10px] text-gray-700"></i>`}
+            channels.slice(0, 300).forEach(ch => {
+                const url = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
+                const card = document.createElement('div');
+                card.className = "ch-card p-4 cursor-pointer flex items-center gap-4 bg-white/[0.02]";
+                card.innerHTML = `
+                    <div class="w-12 h-12 bg-black rounded-lg flex-shrink-0 overflow-hidden border border-white/5 flex items-center justify-center">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain" onerror="this.src=''">` : `<i class="fa-solid fa-tv text-xs opacity-20"></i>`}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold truncate">${ch.name}</div>
-                        <div class="text-[10px] text-gray-500 uppercase">${ch.category_id || 'Live'}</div>
+                        <div class="text-[13px] font-bold truncate tracking-tight uppercase">${ch.name}</div>
+                        <div class="text-[9px] text-gray-500 font-black mt-1">${ch.category_id || 'DIRECT'}</div>
                     </div>
                 `;
-                div.onclick = () => {
-                    play(streamUrl, ch.name, ch.stream_icon);
-                    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active-ch'));
-                    div.classList.add('active-ch');
-                };
-                list.appendChild(div);
+                card.onclick = () => playStream(url, ch.name, ch.stream_icon, ch.category_id);
+                listDiv.appendChild(card);
             });
         }
 
-        function filterChannels() {
-            const query = document.getElementById('search').value.toLowerCase();
-            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(query));
-            // On récupère les identifiants pour relancer le render
-            const host = document.getElementById('host').value;
-            const user = document.getElementById('user').value;
-            const pass = document.getElementById('pass').value;
-            renderChannels(filtered, host, user, pass);
-        }
-
-        function play(url, name, icon) {
-            document.getElementById('chTitle').innerText = name;
-            if(icon) {
-                document.getElementById('chLogo').innerHTML = `<img src="${icon}" class="w-full h-full object-contain">`;
-            }
+        function playStream(url, name, icon, cat) {
+            document.getElementById('currentName').innerText = name;
+            document.getElementById('currentCat').innerText = cat || "LIVE STREAM";
+            const logo = document.getElementById('currentLogo');
+            
+            logo.innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-4xl text-gray-800"></i>`;
 
             if (Hls.isSupported()) {
                 hls.destroy();
                 hls = new Hls();
                 hls.loadSource(url);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.play();
+                hls.attachMedia(player);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => player.play());
+            } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
+                player.src = url;
+                player.play();
             }
+        }
+
+        function filterList() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const host = document.getElementById('host').value;
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(q));
+            renderList(filtered, host, user, pass);
         }
     </script>
 </body>
