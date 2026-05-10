@@ -123,7 +123,6 @@
         let hls = new Hls();
         let allChannels = [];
 
-        // Lancement auto de la modale si aucun accès
         window.onload = () => { document.getElementById('loginModal').style.display = 'flex'; };
 
         async function connectXtream() {
@@ -138,23 +137,32 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> CONNEXION...';
 
+            // On demande les streams en direct
             const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+            
+            // Nouveau Proxy plus performant
+            const proxy = `https://corsproxy.io/?${encodeURIComponent(api)}`;
 
             try {
-                // On utilise AllOrigins pour bypasser le CORS
-                const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(api)}`;
                 const response = await fetch(proxy);
-                const json = await response.json();
-                const data = JSON.parse(json.contents);
+                if (!response.ok) throw new Error("Le serveur proxy ne répond pas");
 
-                if(!Array.isArray(data)) throw new Error("Identifiants ou Host invalides");
+                const data = await response.json();
+
+                if(!Array.isArray(data)) {
+                    if (data.user_info && data.user_info.auth === 0) {
+                        throw new Error("Identifiants IPTV incorrects");
+                    }
+                    throw new Error("Format de données invalide");
+                }
 
                 allChannels = data;
                 document.getElementById('loginModal').style.display = 'none';
                 renderList(allChannels, host, user, pass);
                 
             } catch (err) {
-                alert("ERREUR : " + err.message);
+                console.error(err);
+                alert("ERREUR : " + err.message + "\n\nAstuce : Vérifiez que votre lien Host est correct (http://...)");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'LANCER LE FLUX';
@@ -166,7 +174,8 @@
             document.getElementById('badgeCount').innerText = channels.length + " chaines";
             listDiv.innerHTML = "";
 
-            channels.slice(0, 300).forEach(ch => {
+            // On affiche les 500 premières pour la performance
+            channels.slice(0, 500).forEach(ch => {
                 const url = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
                 const card = document.createElement('div');
                 card.className = "ch-card p-4 cursor-pointer flex items-center gap-4 bg-white/[0.02]";
@@ -174,12 +183,12 @@
                     <div class="w-12 h-12 bg-black rounded-lg flex-shrink-0 overflow-hidden border border-white/5 flex items-center justify-center">
                         ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain" onerror="this.src=''">` : `<i class="fa-solid fa-tv text-xs opacity-20"></i>`}
                     </div>
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1 min-w-0 text-left">
                         <div class="text-[13px] font-bold truncate tracking-tight uppercase">${ch.name}</div>
-                        <div class="text-[9px] text-gray-500 font-black mt-1">${ch.category_id || 'DIRECT'}</div>
+                        <div class="text-[9px] text-gray-500 font-black mt-1 uppercase">${ch.category_name || 'DIRECT'}</div>
                     </div>
                 `;
-                card.onclick = () => playStream(url, ch.name, ch.stream_icon, ch.category_id);
+                card.onclick = () => playStream(url, ch.name, ch.stream_icon, ch.category_name);
                 listDiv.appendChild(card);
             });
         }
@@ -191,12 +200,22 @@
             
             logo.innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-4xl text-gray-800"></i>`;
 
+            // Utilisation du proxy aussi pour le flux vidéo si nécessaire (CORS)
+            const videoUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
             if (Hls.isSupported()) {
                 hls.destroy();
                 hls = new Hls();
-                hls.loadSource(url);
+                hls.loadSource(url); // On tente sans proxy d'abord pour la vidéo
                 hls.attachMedia(player);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => player.play());
+                
+                // Si erreur de chargement vidéo, on tente avec le proxy
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.details === 'manifestLoadError') {
+                        hls.loadSource(videoUrl);
+                    }
+                });
             } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
                 player.src = url;
                 player.play();
