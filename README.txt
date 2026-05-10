@@ -1,17 +1,29 @@
-INSTALLATION :
+INSTALLATION
 
 1. Installer Node.js
-https://nodejs.org
 
-2. Ouvrir un terminal dans le dossier
+2. Ouvrir le terminal dans le dossier
 
-3. Installer les dépendances :
+3. Installer :
 npm install
 
 4. Lancer :
 npm run dev
 
-5. Mettre en ligne :
-vercel
+5. Déployer sur GitHub Pages :
+npm run deploy
 
-Compatible Tesla Browser.
+IMPORTANT :
+Le repo GitHub doit s'appeler :
+Teslatv
+
+GitHub -> Settings -> Pages
+
+Source :
+Deploy from a branch
+
+Branch :
+gh-pages
+
+Folder :
+/ (root)

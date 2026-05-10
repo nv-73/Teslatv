@@ -1,12 +1,15 @@
 {
-  "name": "tesla-webtv",
+  "name": "teslatv",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "homepage": "https://nv-73.github.io/Teslatv/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "hls.js": "^1.5.8",
@@ -17,6 +20,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "gh-pages": "^6.2.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "vite": "^5.4.8"
