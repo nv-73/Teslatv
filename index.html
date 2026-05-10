@@ -1,12 +1,108 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TeslaTV</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebTV - Clone Pleyr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f0f0f; color: white; }
+        .sidebar { background-color: #1a1a1a; }
+        .video-container { aspect-ratio: 16 / 9; background: black; }
+        .card:hover { transform: translateY(-5px); transition: 0.3s; }
+        .active-live { border-left: 4px solid #ef4444; background: #262626; }
+    </style>
 </head>
-<body>
-<div id="root"></div>
-<script type="module" src="/src/main.jsx"></script>
+<body class="font-sans">
+
+    <nav class="flex items-center justify-between px-6 py-3 bg-[#121212] sticky top-0 z-50 border-b border-gray-800">
+        <div class="flex items-center gap-8">
+            <h1 class="text-2xl font-bold text-red-600 tracking-tighter">WEB<span class="text-white">TV</span></h1>
+            <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
+                <a href="#" class="hover:text-white">Parcourir</a>
+                <a href="#" class="hover:text-white">Directs</a>
+                <a href="#" class="hover:text-white">Programmes</a>
+            </div>
+        </div>
+        <div class="flex-1 max-w-xl px-8">
+            <div class="relative">
+                <input type="text" placeholder="Rechercher une chaîne..." class="w-full bg-[#2a2a2a] border-none rounded-full py-2 px-10 text-sm focus:ring-2 focus:ring-red-600">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Connexion</button>
+        </div>
+    </nav>
+
+    <div class="flex">
+        <aside class="sidebar w-64 hidden lg:block h-[calc(100vh-64px)] sticky top-16 overflow-y-auto">
+            <div class="p-4 text-xs font-bold text-gray-500 uppercase">Chaînes recommandées</div>
+            <div class="flex flex-col">
+                <div class="flex items-center gap-3 p-3 active-live cursor-pointer">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 to-red-600"></div>
+                    <div class="flex-1">
+                        <div class="text-sm font-semibold">Streamer_TV</div>
+                        <div class="text-xs text-gray-400">Gaming & Fun</div>
+                    </div>
+                    <div class="text-xs flex items-center gap-1"><span class="w-2 h-2 bg-red-600 rounded-full"></span> 1.2k</div>
+                </div>
+                <div class="flex items-center gap-3 p-3 hover:bg-[#262626] cursor-pointer">
+                    <div class="w-10 h-10 rounded-full bg-blue-500"></div>
+                    <div class="flex-1">
+                        <div class="text-sm font-semibold">News24</div>
+                        <div class="text-xs text-gray-400">Actualités</div>
+                    </div>
+                    <div class="text-xs text-gray-400">Hors-ligne</div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6">
+            <div class="video-container rounded-xl overflow-hidden shadow-2xl mb-6">
+                <iframe 
+                    width="100%" 
+                    height="100%" 
+                    src="https://www.youtube.com/embed/live_stream?channel=UC4R8DWoMoI7CAwX8_LjQHig" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            </div>
+
+            <div class="flex justify-between items-start mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold">GRAND DIRECT : Le tournoi de l'été</h2>
+                    <p class="text-gray-400">Diffusé par <span class="text-red-500 font-semibold cursor-pointer">WebTV_Official</span></p>
+                </div>
+                <div class="flex gap-3">
+                    <button class="bg-[#2a2a2a] p-2 px-4 rounded-lg hover:bg-gray-700 transition"><i class="fa-solid fa-share mr-2"></i>Partager</button>
+                    <button class="bg-[#2a2a2a] p-2 px-4 rounded-lg hover:bg-gray-700 transition"><i class="fa-solid fa-heart text-red-500 mr-2"></i>Suivre</button>
+                </div>
+            </div>
+
+            <h3 class="text-xl font-bold mb-4">À découvrir ensuite</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div class="card cursor-pointer">
+                    <div class="relative rounded-lg overflow-hidden mb-2">
+                        <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500" class="w-full h-40 object-cover">
+                        <span class="absolute bottom-2 right-2 bg-black/80 text-[10px] px-2 py-1 rounded">24:05</span>
+                    </div>
+                    <h4 class="font-bold text-sm line-clamp-2">Best-of de la semaine : Les meilleurs moments</h4>
+                    <p class="text-xs text-gray-400 mt-1">15k vues • il y a 2 jours</p>
+                </div>
+                <div class="card cursor-pointer">
+                    <div class="relative rounded-lg overflow-hidden mb-2">
+                        <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=500" class="w-full h-40 object-cover">
+                        <span class="absolute bottom-2 right-2 bg-black/80 text-[10px] px-2 py-1 rounded">1:12:00</span>
+                    </div>
+                    <h4 class="font-bold text-sm line-clamp-2">Documentaire : L'évolution de l'eSport</h4>
+                    <p class="text-xs text-gray-400 mt-1">45k vues • il y a 5 heures</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
 </body>
 </html>
