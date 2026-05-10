@@ -118,7 +118,7 @@
         </main>
     </div>
 
-    <script>
+  <script>
         let player = document.getElementById('player');
         let hls = new Hls();
         let allChannels = [];
@@ -135,38 +135,49 @@
             if(host.endsWith('/')) host = host.slice(0, -1);
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> CONNEXION...';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> TENTATIVE...';
 
-            // On demande les streams en direct
             const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
             
-            // Nouveau Proxy plus performant
-            const proxy = `https://corsproxy.io/?${encodeURIComponent(api)}`;
+            // Liste de proxys de secours
+            const proxies = [
+                (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+                (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
+                (url) => `https://cors-anywhere.herokuapp.com/${url}`
+            ];
 
-            try {
-                const response = await fetch(proxy);
-                if (!response.ok) throw new Error("Le serveur proxy ne répond pas");
+            let success = false;
 
-                const data = await response.json();
-
-                if(!Array.isArray(data)) {
-                    if (data.user_info && data.user_info.auth === 0) {
-                        throw new Error("Identifiants IPTV incorrects");
+            for (let getProxy of proxies) {
+                try {
+                    const response = await fetch(getProxy(api));
+                    let data;
+                    
+                    if (getProxy.toString().includes("allorigins")) {
+                        const json = await response.json();
+                        data = JSON.parse(json.contents);
+                    } else {
+                        data = await response.json();
                     }
-                    throw new Error("Format de données invalide");
-                }
 
-                allChannels = data;
-                document.getElementById('loginModal').style.display = 'none';
-                renderList(allChannels, host, user, pass);
-                
-            } catch (err) {
-                console.error(err);
-                alert("ERREUR : " + err.message + "\n\nAstuce : Vérifiez que votre lien Host est correct (http://...)");
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'LANCER LE FLUX';
+                    if (Array.isArray(data)) {
+                        allChannels = data;
+                        renderList(allChannels, host, user, pass);
+                        document.getElementById('loginModal').style.display = 'none';
+                        success = true;
+                        break; 
+                    }
+                } catch (e) {
+                    console.log("Essai proxy suivant...");
+                }
             }
+
+            if (!success) {
+                alert("ÉCHEC DE CONNEXION :\n\nLes serveurs proxy sont saturés. \n\nSOLUTION :\n1. Installez l'extension 'Allow CORS' sur Chrome.\n2. Activez-la.\n3. Cliquez à nouveau sur Connexion.");
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = 'LANCER LE FLUX';
         }
 
         function renderList(channels, host, user, pass) {
@@ -174,8 +185,8 @@
             document.getElementById('badgeCount').innerText = channels.length + " chaines";
             listDiv.innerHTML = "";
 
-            // On affiche les 500 premières pour la performance
             channels.slice(0, 500).forEach(ch => {
+                // Construction URL Xtream standard
                 const url = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
                 const card = document.createElement('div');
                 card.className = "ch-card p-4 cursor-pointer flex items-center gap-4 bg-white/[0.02]";
@@ -197,25 +208,14 @@
             document.getElementById('currentName').innerText = name;
             document.getElementById('currentCat').innerText = cat || "LIVE STREAM";
             const logo = document.getElementById('currentLogo');
-            
             logo.innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-4xl text-gray-800"></i>`;
-
-            // Utilisation du proxy aussi pour le flux vidéo si nécessaire (CORS)
-            const videoUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
 
             if (Hls.isSupported()) {
                 hls.destroy();
                 hls = new Hls();
-                hls.loadSource(url); // On tente sans proxy d'abord pour la vidéo
+                hls.loadSource(url);
                 hls.attachMedia(player);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => player.play());
-                
-                // Si erreur de chargement vidéo, on tente avec le proxy
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.details === 'manifestLoadError') {
-                        hls.loadSource(videoUrl);
-                    }
-                });
+                hls.on(Hls.Events.MANIFEST_PARSED, () => player.play().catch(() => {}));
             } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
                 player.src = url;
                 player.play();
@@ -230,6 +230,6 @@
             const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(q));
             renderList(filtered, host, user, pass);
         }
-    </script>
+       </script>
 </body>
 </html>
