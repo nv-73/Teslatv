@@ -3,161 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTV - Lecteur M3U</title>
+    <title>WebTV Premium - Xtream Player</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Hls.js pour lire les flux IPTV standard -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { background-color: #0f0f0f; color: white; overflow-x: hidden; }
-        .sidebar { background-color: #1a1a1a; transition: all 0.3s; }
-        .video-container { aspect-ratio: 16 / 9; background: black; position: relative; }
-        .card:hover { transform: translateY(-5px); transition: 0.3s; }
-        .btn-youtube { background-color: #FF0000; }
-        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
-        #video-player { width: 100%; height: 100%; }
+        :root { --primary: #ef4444; --bg: #0a0a0a; --sidebar: #121212; --card: #1e1e1e; }
+        body { background-color: var(--bg); color: white; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .sidebar { background-color: var(--sidebar); height: calc(100vh - 64px); }
+        .video-aspect { aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; backdrop-filter: blur(5px); }
+        .channel-item { transition: 0.2s; border-radius: 8px; margin: 2px 8px; }
+        .channel-item:hover { background: #262626; transform: translateX(5px); }
+        .active-ch { background: #262626; border-left: 4px solid var(--primary); }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="font-sans">
+<body>
 
-    <!-- MODALE CONNEXION M3U -->
-    <div id="m3uModal" class="modal flex items-center justify-center">
-        <div class="bg-[#1a1a1a] p-8 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl">
-            <h2 class="text-2xl font-bold mb-4 text-center">Charger votre Playlist M3U</h2>
-            <p class="text-gray-400 text-sm mb-6 text-center">Entrez l'URL de votre playlist pour accéder à vos chaînes.</p>
-            <input type="text" id="m3uUrl" placeholder="https://exemple.com/playlist.m3u" 
-                   class="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-3 mb-4 focus:outline-none focus:border-red-600">
-            <button onclick="loadM3U()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition">
-                Se connecter à la playlist
-            </button>
-            <button onclick="toggleModal()" class="w-full mt-3 text-gray-500 text-sm hover:text-white">Annuler</button>
+    <!-- MODALE DE CONNEXION XTREAM -->
+    <div id="loginModal" class="modal flex items-center justify-center">
+        <div class="bg-[#1a1a1a] p-8 rounded-3xl w-full max-w-md border border-gray-800">
+            <div class="text-center mb-8">
+                <div class="inline-block p-4 bg-red-600/10 rounded-full mb-4">
+                    <i class="fa-solid fa-server text-3xl text-red-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold">Connexion Xtream</h2>
+                <p class="text-gray-500 text-sm mt-2">Accédez à vos bouquets TV en direct</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="host" placeholder="http://nom-du-serveur.com:8080" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
+                <input type="text" id="user" placeholder="Nom d'utilisateur" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
+                <input type="password" id="pass" placeholder="Mot de passe" class="w-full bg-[#262626] border border-gray-700 p-3 rounded-xl focus:ring-2 focus:ring-red-600 outline-none">
+                <button onclick="connect()" id="loginBtn" class="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-bold transition flex justify-center items-center gap-2">
+                    <span>Se connecter</span>
+                    <div id="btnLoader" class="loader"></div>
+                </button>
+                <p class="text-[10px] text-gray-600 text-center uppercase tracking-widest mt-4">Sécurisé par WebTV Protocol</p>
+            </div>
         </div>
     </div>
 
-    <!-- NAVIGATION -->
-    <nav class="flex items-center justify-between px-6 py-3 bg-[#121212] sticky top-0 z-50 border-b border-gray-800">
-        <div class="flex items-center gap-8">
-            <h1 class="text-2xl font-bold text-red-600 tracking-tighter">WEB<span class="text-white">TV</span></h1>
+    <!-- NAVBAR -->
+    <nav class="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-[#0f0f0f]">
+        <div class="flex items-center gap-4">
+            <span class="text-2xl font-black text-red-600 tracking-tighter">PLEYR<span class="text-white">CLONE</span></span>
         </div>
-        
+        <div class="hidden md:flex flex-1 max-w-md mx-10">
+            <div class="relative w-full">
+                <input type="text" id="search" onkeyup="filterChannels()" placeholder="Rechercher une chaîne..." class="w-full bg-[#1a1a1a] rounded-full py-2 px-10 text-sm border border-gray-800 focus:border-red-600 outline-none">
+                <i class="fa-solid fa-search absolute left-4 top-3 text-gray-600 text-xs"></i>
+            </div>
+        </div>
         <div class="flex items-center gap-3">
-            <a href="https://www.youtube.com" target="_blank" class="btn-youtube flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-bold">
-                <i class="fa-brands fa-youtube"></i> <span>YouTube</span>
+            <a href="https://youtube.com" target="_blank" class="bg-red-600 p-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2">
+                <i class="fa-brands fa-youtube"></i> YOUTUBE
             </a>
-            <!-- Bouton Connexion qui ouvre la modale -->
-            <button onclick="toggleModal()" id="connectBtn" class="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
-                Connexion M3U
+            <button onclick="document.getElementById('loginModal').style.display='flex'" class="bg-white text-black p-2 px-4 rounded-lg text-xs font-bold hover:bg-gray-200">
+                <i class="fa-solid fa-plug mr-1"></i> SERVEUR
             </button>
         </div>
     </nav>
 
     <div class="flex">
-        <!-- BARRE LATÉRALE : LISTE DES CHAÎNES -->
-        <aside class="sidebar w-72 h-[calc(100vh-64px)] sticky top-16 overflow-y-auto border-r border-gray-800">
-            <div class="p-4 text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
-                <span>Mes Chaînes</span>
-                <span id="channelCount" class="bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px]">0</span>
+        <!-- SIDEBAR -->
+        <aside class="sidebar w-80 flex flex-col">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-[#161616]">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Chaînes Live</span>
+                <span id="chCount" class="text-[10px] bg-red-600/20 text-red-500 px-2 py-1 rounded">0</span>
             </div>
-            <div id="channelList" class="flex flex-col">
-                <div class="p-6 text-center text-gray-500 text-sm italic">
-                    Connectez-vous pour voir vos chaînes...
+            <div id="channelList" class="flex-1 overflow-y-auto py-2">
+                <div class="p-10 text-center text-gray-600">
+                    <i class="fa-solid fa-tv mb-4 text-4xl block opacity-20"></i>
+                    <p class="text-sm italic">Aucune chaîne chargée</p>
                 </div>
             </div>
         </aside>
 
-        <!-- CONTENU PRINCIPAL -->
-        <main class="flex-1 p-6">
-            <div class="video-container rounded-xl overflow-hidden shadow-2xl mb-6">
-                <!-- Lecteur Video HTML5 -->
-                <video id="video-player" controls poster="https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=1200"></video>
-            </div>
+        <!-- PLAYER AREA -->
+        <main class="flex-1 p-6 h-[calc(100vh-64px)] overflow-y-auto">
+            <div class="max-w-5xl mx-auto">
+                <div class="video-aspect mb-6">
+                    <video id="mainPlayer" controls class="w-full h-full"></video>
+                </div>
 
-            <div class="flex justify-between items-start">
-                <div>
-                    <h2 id="currentChannelName" class="text-2xl font-bold italic text-gray-500">Aucune chaîne sélectionnée</h2>
-                    <p class="text-gray-400">Lecteur Web TV Universel</p>
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-5">
+                        <div id="chLogo" class="w-20 h-20 bg-[#1a1a1a] border border-gray-800 rounded-2xl flex items-center justify-center p-2">
+                            <i class="fa-solid fa-satellite-dish text-3xl text-gray-700"></i>
+                        </div>
+                        <div>
+                            <h1 id="chTitle" class="text-3xl font-bold">Prêt à diffuser</h1>
+                            <p id="chCat" class="text-gray-500 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                Système opérationnel • API Xtream
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center border border-gray-800 hover:text-red-500"><i class="fa-solid fa-heart"></i></button>
+                        <button class="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center border border-gray-800 hover:text-blue-500"><i class="fa-solid fa-share-nodes"></i></button>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        const modal = document.getElementById('m3uModal');
-        const video = document.getElementById('video-player');
-        const hls = new Hls();
+        let hls = new Hls();
+        let allChannels = [];
+        const video = document.getElementById('mainPlayer');
 
-        function toggleModal() {
-            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
-        }
+        async function connect() {
+            const host = document.getElementById('host').value;
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            const btn = document.getElementById('loginBtn');
+            const loader = document.getElementById('btnLoader');
 
-        async function loadM3U() {
-            const url = document.getElementById('m3uUrl').value;
-            if (!url) return alert("Veuillez entrer une URL");
+            if(!host || !user || !pass) return alert("Veuillez remplir tous les champs.");
+
+            btn.disabled = true;
+            loader.style.display = "block";
+
+            // Construction de l'URL API Xtream
+            const url = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
 
             try {
-                const response = await fetch(url);
-                const data = await response.text();
-                parseM3U(data);
-                toggleModal();
-                document.getElementById('connectBtn').innerText = "Playlist Connectée";
-                document.getElementById('connectBtn').classList.replace('bg-white', 'bg-green-600');
-                document.getElementById('connectBtn').classList.add('text-white');
-            } catch (error) {
-                alert("Erreur lors du chargement : Vérifiez l'URL ou les droits CORS");
+                // Utilisation d'un proxy pour éviter les erreurs CORS sur GitHub
+                const proxy = "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+                const response = await fetch(proxy);
+                const result = await response.json();
+                const data = JSON.parse(result.contents);
+
+                if(data.error) throw new Error();
+
+                allChannels = data;
+                renderChannels(allChannels, host, user, pass);
+                document.getElementById('loginModal').style.display = 'none';
+            } catch (e) {
+                alert("Erreur de connexion. Vérifiez l'URL du serveur ou vos accès.");
+            } finally {
+                btn.disabled = false;
+                loader.style.display = "none";
             }
         }
 
-        function parseM3U(content) {
-            const lines = content.split('\n');
-            const channels = [];
-            let currentChannel = {};
-
-            lines.forEach(line => {
-                if (line.startsWith('#EXTINF:')) {
-                    const name = line.split(',')[1];
-                    currentChannel = { name: name.trim() };
-                } else if (line.startsWith('http')) {
-                    currentChannel.url = line.trim();
-                    channels.push(currentChannel);
-                }
-            });
-
-            displayChannels(channels);
-        }
-
-        function displayChannels(channels) {
+        function renderChannels(channels, host, user, pass) {
             const list = document.getElementById('channelList');
-            const count = document.getElementById('channelCount');
+            document.getElementById('chCount').innerText = channels.length;
             list.innerHTML = "";
-            count.innerText = channels.length;
 
-            channels.forEach(channel => {
+            channels.slice(0, 500).forEach(ch => {
+                const streamUrl = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
                 const div = document.createElement('div');
-                div.className = "flex items-center gap-3 p-3 hover:bg-[#262626] cursor-pointer border-b border-gray-900/50";
+                div.className = "channel-item p-3 cursor-pointer flex items-center gap-3";
                 div.innerHTML = `
-                    <div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-xs font-bold">TV</div>
-                    <div class="text-sm font-medium truncate">${channel.name}</div>
+                    <div class="w-10 h-10 bg-black rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-800">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-[10px] text-gray-700"></i>`}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-bold truncate">${ch.name}</div>
+                        <div class="text-[10px] text-gray-500 uppercase">${ch.category_id || 'Live'}</div>
+                    </div>
                 `;
-                div.onclick = () => playStream(channel.url, channel.name);
+                div.onclick = () => {
+                    play(streamUrl, ch.name, ch.stream_icon);
+                    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active-ch'));
+                    div.classList.add('active-ch');
+                };
                 list.appendChild(div);
             });
         }
 
-        function playStream(url, name) {
-            document.getElementById('currentChannelName').innerText = name;
-            document.getElementById('currentChannelName').classList.remove('italic', 'text-gray-500');
+        function filterChannels() {
+            const query = document.getElementById('search').value.toLowerCase();
+            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(query));
+            // On récupère les identifiants pour relancer le render
+            const host = document.getElementById('host').value;
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            renderChannels(filtered, host, user, pass);
+        }
+
+        function play(url, name, icon) {
+            document.getElementById('chTitle').innerText = name;
+            if(icon) {
+                document.getElementById('chLogo').innerHTML = `<img src="${icon}" class="w-full h-full object-contain">`;
+            }
 
             if (Hls.isSupported()) {
+                hls.destroy();
+                hls = new Hls();
                 hls.loadSource(url);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play();
-                });
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
-                video.addEventListener('loadedmetadata', function() {
-                    video.play();
-                });
+                video.play();
             }
         }
     </script>
