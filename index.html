@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PLEYR SMARTERS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Video.js Ressources -->
+    <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -13,14 +15,13 @@
         .content-list { flex: 1; overflow-y: auto; background: #0a0a0a; scrollbar-width: none; }
         .item-card { background: #111; border: 1px solid #222; margin: 8px; padding: 15px; border-radius: 12px; cursor: pointer; transition: 0.1s; }
         .item-card:active { background: #e82127; border-color: #e82127; }
-        .cat-card { background: #1a1a1a; border-left: 4px solid transparent; }
-        .cat-active { border-left: 4px solid #e82127; background: #222; }
-        video { width: 100%; aspect-ratio: 16/9; background: #000; }
+        /* Style spécifique pour que Video.js s'adapte bien */
+        .video-js { width: 100% !important; aspect-ratio: 16/9 !important; }
     </style>
 </head>
 <body class="flex h-screen">
 
-    <!-- BARRE DES CATÉGORIES (Sidebar gauche) -->
+    <!-- BARRE DES CATÉGORIES -->
     <aside class="sidebar">
         <div class="p-4 border-b border-white/5">
             <h1 class="font-black italic text-xl tracking-tighter">PLEYR<span class="text-red-600">SMART</span></h1>
@@ -30,7 +31,7 @@
         </div>
     </aside>
 
-    <!-- LISTE DES CHAÎNES (Milieu) -->
+    <!-- LISTE DES CHAÎNES -->
     <section class="flex-1 flex flex-col border-right border-white/5">
         <div class="h-14 flex items-center px-6 border-b border-white/5 bg-[#080808]">
             <input type="text" id="search" oninput="filterChannels()" placeholder="Rechercher..." class="bg-transparent outline-none text-sm w-full">
@@ -42,9 +43,10 @@
         </div>
     </section>
 
-    <!-- LECTEUR (Droite) -->
+    <!-- LECTEUR (Video.js remplace la balise video standard) -->
     <main class="w-[45%] flex flex-col bg-black">
-        <video id="v" controls autoplay playsinline></video>
+        <video id="v" class="video-js vjs-default-skin" controls preload="auto" playsinline muted></video>
+        
         <div class="p-8">
             <h2 id="now-playing" class="text-3xl font-black italic uppercase text-gray-800">Aucun flux</h2>
             <div id="ch-info" class="mt-4 text-sm text-gray-500 font-bold uppercase tracking-widest"></div>
@@ -60,9 +62,12 @@
     <script>
         const API = { host: "http://pl-ott.com:80", user: "8576200005", pass: "9637719534", proxy: "https://corsproxy.io/?" };
         let currentChannels = [];
-        const hls = new Hls({ capLevelToPlayerSize: true });
+        
+        // Initialisation de Video.js
+        const player = videojs('v', {
+            html5: { vhs: { overrideNative: true } }
+        });
 
-        // 1. CHARGER LES CATÉGORIES (Très rapide)
         async function loadCategories() {
             const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_categories`;
             try {
@@ -82,7 +87,6 @@
             `).join('');
         }
 
-        // 2. CHARGER LES CHAINES D'UNE CATÉGORIE (Petit paquet)
         async function loadChannels(catId, el) {
             document.querySelectorAll('#category-list div').forEach(d => d.style.borderLeft = "none");
             el.style.borderLeft = "4px solid #e82127";
@@ -114,9 +118,12 @@
             document.getElementById('now-playing').classList.remove('text-gray-800');
             const streamUrl = `${API.proxy}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
             
-            hls.loadSource(streamUrl);
-            hls.attachMedia(document.getElementById('v'));
-            hls.on(Hls.Events.MANIFEST_PARSED, () => document.getElementById('v').play());
+            // Utilisation de l'API Video.js pour charger et lire
+            player.src({
+                src: streamUrl,
+                type: 'application/x-mpegURL'
+            });
+            player.play();
         }
 
         function filterChannels() {
