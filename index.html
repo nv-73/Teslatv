@@ -3,155 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLEYR SMARTERS PRO</title>
+    <title>PLEYR PREMIUM V2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Intégration de Video.js (Lecteur Pro) -->
+    <!-- Video.js Ressources -->
     <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
     <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root { --tesla-red: #e82127; }
         body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        .sidebar { width: 300px; background: #050505; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; }
-        .content-list { flex: 1; overflow-y: auto; background: #0a0a0a; scrollbar-width: none; }
-        .item-card { background: #111; border: 1px solid #222; margin: 6px; padding: 12px; border-radius: 10px; cursor: pointer; }
-        .item-card:active { background: #e82127; }
-        .vjs-theme-tesla { width: 100% !important; aspect-ratio: 16/9 !important; }
-        /* Correction pour l'affichage sur écran Tesla */
-        .video-js .vjs-big-play-button { top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; width: 80px; height: 80px; line-height: 80px; }
+        .list-container { height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: none; }
+        .list-container::-webkit-scrollbar { display: none; }
+        .ch-card { background: #0a0a0a; border: 1px solid #1a1a1a; transition: 0.2s; border-radius: 12px; }
+        .ch-card:active { transform: scale(0.97); background: #151515; border-color: var(--tesla-red); }
+        .active-ch { border-left: 4px solid var(--tesla-red); background: #111 !important; }
+        /* Style Tesla pour Video.js */
+        .video-js { width: 100% !important; aspect-ratio: 16/9 !important; background-color: #000; }
+        .vjs-big-play-button { top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; border-radius: 50% !important; width: 60px !important; height: 60px !important; line-height: 60px !important; }
     </style>
 </head>
-<body class="flex h-screen">
+<body class="flex h-screen overflow-hidden">
 
-    <!-- CATÉGORIES -->
-    <aside class="sidebar">
-        <div class="p-4 border-b border-white/5 bg-black">
-            <h1 class="font-black italic text-xl tracking-tighter text-red-600">PLEYR<span class="text-white">SMART</span></h1>
+    <!-- SIDEBAR : TA PLAYLIST COMPLETE -->
+    <aside class="w-[350px] flex flex-col bg-[#050505] border-r border-white/5">
+        <div class="p-4 border-b border-white/5">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-2 h-5 bg-red-600 rounded-full"></div>
+                <span class="font-bold tracking-tighter uppercase">PLEYR<span class="text-red-600">PRO</span></span>
+            </div>
+            <input type="text" id="search" oninput="filter()" placeholder="Rechercher..." 
+                   class="w-full bg-[#111] border border-white/10 p-3 rounded-xl text-sm outline-none focus:border-red-600">
         </div>
-        <div id="category-list" class="flex-1 overflow-y-auto">
-            <div class="p-10 text-center opacity-20 text-xs">Chargement...</div>
+        <div id="list" class="list-container px-3 py-4">
+            <p class="text-center text-xs opacity-30 mt-10">Chargement de la playlist...</p>
         </div>
     </aside>
 
-    <!-- LISTE CHAINES -->
-    <section class="flex-1 flex flex-col border-r border-white/5">
-        <div class="h-14 flex items-center px-4 border-b border-white/5 bg-[#080808]">
-            <input type="text" id="search" oninput="filterChannels()" placeholder="Rechercher dans la catégorie..." class="bg-transparent outline-none text-sm w-full">
+    <!-- MAIN : PLAYER VIDEO.JS -->
+    <main class="flex-1 flex flex-col bg-black">
+        <div class="relative">
+            <video id="my-video" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" playsinline muted></video>
         </div>
-        <div id="channel-list" class="content-list">
-            <div class="p-10 text-center text-gray-700 text-xs font-bold uppercase tracking-widest">Sélectionnez une catégorie à gauche</div>
-        </div>
-    </section>
 
-    <!-- LECTEUR VIDEO PRO -->
-    <main class="w-[45%] flex flex-col bg-black">
-        <div class="bg-black relative">
-            <video id="tesla-video" class="video-js vjs-default-skin vjs-big-play-centered vjs-theme-tesla" controls preload="auto" playsinline></video>
-        </div>
-        
-        <div class="p-6">
-            <div id="now-playing-box" class="hidden">
-                <span class="text-red-600 text-[10px] font-bold uppercase tracking-[0.3em]">En Direct</span>
-                <h2 id="now-playing" class="text-2xl font-black italic uppercase mt-1 truncate">Nom de la chaîne</h2>
-                <hr class="my-4 border-white/5">
-                <p class="text-[10px] text-gray-500 leading-relaxed uppercase">
-                    Moteur de rendu : Video.js + HLS.js Hybrid<br>
-                    Statut : <span class="text-green-500">Connecté via Proxy Sécurisé</span>
-                </p>
-            </div>
-            
-            <div id="placeholder-info" class="mt-10 text-center opacity-10">
-                <i class="fa-solid fa-play text-6xl mb-4"></i>
-                <p class="font-bold uppercase tracking-widest text-xs">Lecteur prêt</p>
+        <div class="p-10">
+            <div id="meta" class="opacity-0 transition-opacity duration-500">
+                <span class="text-red-600 font-bold text-[10px] uppercase tracking-widest">Live Streaming</span>
+                <h1 id="ch-name" class="text-4xl font-black italic uppercase tracking-tighter mt-1">SÉLECTIONNEZ UNE CHAÎNE</h1>
+                <div class="flex items-center gap-3 mt-4">
+                    <div id="ch-img" class="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden border border-white/10">
+                        <i class="fa-solid fa-tv opacity-20"></i>
+                    </div>
+                    <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                        Protocol: HLS Stable <br> Player: Video.js 8.3.0
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        const API = { host: "http://pl-ott.com:80", user: "8576200005", pass: "9637719534", proxy: "https://corsproxy.io/?" };
-        let currentChannels = [];
+        const CONFIG = {
+            host: "http://pl-ott.com:80",
+            user: "8576200005",
+            pass: "9637719534",
+            proxy: "https://corsproxy.io/?"
+        };
+
+        let allChannels = [];
         
         // Initialisation du lecteur Video.js
-        const player = videojs('tesla-video', {
-            html5: {
-                vhs: { overrideNative: true },
-                nativeAudioTracks: false,
-                nativeVideoTracks: false
-            }
+        const player = videojs('my-video', {
+            fluid: true,
+            playbackRates: [1],
+            html5: { vhs: { overrideNative: true } }
         });
 
-        async function loadCategories() {
-            const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_categories`;
+        async function init() {
+            const api = `${CONFIG.host}/player_api.php?username=${CONFIG.user}&password=${CONFIG.pass}&action=get_live_streams`;
             try {
-                const r = await fetch(API.proxy + encodeURIComponent(url));
-                const data = await r.json();
-                renderCategories(data);
-            } catch (e) { console.error("Erreur catégories"); }
+                const r = await fetch(CONFIG.proxy + encodeURIComponent(api));
+                allChannels = await r.json();
+                render(allChannels);
+            } catch (e) {
+                document.getElementById('list').innerHTML = "<p class='p-4 text-red-500'>Erreur réseau</p>";
+            }
         }
 
-        function renderCategories(cats) {
-            const container = document.getElementById('category-list');
-            container.innerHTML = cats.map(c => `
-                <div class="p-4 border-b border-white/5 text-[11px] font-bold uppercase tracking-tighter cursor-pointer hover:bg-white/5 active:bg-red-600/20" 
-                     onclick="loadChannels('${c.category_id}', this)">
-                    ${c.category_name}
-                </div>
-            `).join('');
-        }
-
-        async function loadChannels(catId, el) {
-            document.querySelectorAll('#category-list div').forEach(d => d.classList.remove('bg-red-600/10', 'border-l-4', 'border-red-600'));
-            el.classList.add('bg-red-600/10', 'border-l-4', 'border-red-600');
-            
-            const list = document.getElementById('channel-list');
-            list.innerHTML = "<div class='p-10 text-center animate-pulse text-xs'>Chargement du paquet...</div>";
-            
-            const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_streams&category_id=${catId}`;
-            try {
-                const r = await fetch(API.proxy + encodeURIComponent(url));
-                currentChannels = await r.json();
-                renderChannels(currentChannels);
-            } catch (e) { list.innerHTML = "Erreur de chargement"; }
-        }
-
-        function renderChannels(channels) {
-            const container = document.getElementById('channel-list');
-            container.innerHTML = channels.map(ch => `
-                <div class="item-card flex items-center gap-4" onclick="playStream('${ch.stream_id}', '${ch.name.replace(/'/g, " ")}')">
-                    <div class="w-8 h-8 bg-black rounded flex items-center justify-center border border-white/5 text-[9px] font-bold text-gray-600">
-                        ${ch.stream_id.slice(-3)}
+        function render(data) {
+            const listEl = document.getElementById('list');
+            listEl.innerHTML = data.map(ch => `
+                <div class="ch-card p-4 mb-2 flex items-center gap-4 cursor-pointer" onclick="play('${ch.stream_id}', '${ch.name.replace(/'/g, " ")}', '${ch.stream_icon}', this)">
+                    <div class="w-10 h-10 bg-black rounded flex-shrink-0 flex items-center justify-center p-1 border border-white/5">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain" loading="lazy">` : `<i class="fa-solid fa-tv text-[10px] opacity-20"></i>`}
                     </div>
-                    <div class="font-bold text-xs truncate uppercase">${ch.name}</div>
+                    <div class="font-bold text-sm truncate uppercase tracking-tight">${ch.name}</div>
                 </div>
             `).join('');
         }
 
-        function playStream(id, name) {
-            document.getElementById('placeholder-info').classList.add('hidden');
-            document.getElementById('now-playing-box').classList.remove('hidden');
-            document.getElementById('now-playing').innerText = name;
-
-            const streamUrl = `${API.proxy}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
+        function play(id, name, icon, el) {
+            // UI
+            document.getElementById('meta').style.opacity = 1;
+            document.getElementById('ch-name').innerText = name;
+            document.getElementById('ch-img').innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv opacity-20"></i>`;
             
-            // On utilise Video.js pour charger la source
+            document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('active-ch'));
+            el.classList.add('active-ch');
+
+            // Source Video.js
+            const streamUrl = `${CONFIG.proxy}${encodeURIComponent(CONFIG.host + '/live/' + CONFIG.user + '/' + CONFIG.pass + '/' + id + '.m3u8')}`;
+            
             player.src({
                 src: streamUrl,
                 type: 'application/x-mpegURL'
             });
-            
+
             player.ready(function() {
-                player.play().catch(function(error) {
-                    console.log("Autoplay bloqué par la Tesla, lecture manuelle requise.");
-                });
+                player.play();
             });
         }
 
-        function filterChannels() {
+        function filter() {
             const q = document.getElementById('search').value.toLowerCase();
-            const filtered = currentChannels.filter(c => c.name.toLowerCase().includes(q));
-            renderChannels(filtered);
+            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(q));
+            render(filtered);
         }
 
-        loadCategories();
+        init();
     </script>
 </body>
 </html>
