@@ -3,8 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PLEYR TESLA PRO</title>
+    <title>DERNIER</title>
+    <script src="https://cdn.tailwindcss.com"></script><!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>PLEYR - TESLA FIX</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; }
+        .active-ch { background: #1a1a1a; border-left: 4px solid #ff0000; }
+        .ch-item { border-bottom: 1px solid #111; -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <div class="h-12 border-b border-gray-800 flex items-center px-6 bg-black">
+        <span class="font-bold text-red-600">PLEYR <span class="text-white">PRO</span></span>
+        <span id="status" class="ml-auto text-[10px] text-gray-500 uppercase">Recherche du serveur...</span>
+    </div>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-1/3 flex flex-col bg-black border-r border-gray-800">
+            <div id="list" class="flex-1 overflow-y-auto">
+                <div id="loader" class="p-10 text-center text-sm text-gray-600">Initialisation...</div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col bg-black">
+            <video id="video" controls autoplay class="w-full aspect-video bg-black"></video>
+            <div class="p-6">
+                <h1 id="title" class="text-xl font-bold">Sélectionnez une chaîne</h1>
+                <p id="cat" class="text-gray-500 text-xs mt-1 italic">Tesla Media Engine v3</p>
+                
+                <!-- BOUTON DE SECOURS -->
+                <button onclick="window.location.href='http://' + window.location.host + window.location.pathname" 
+                        class="mt-10 w-full p-4 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400">
+                    FORCER LE MODE HTTP (SI ÉCHEC)
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const host = "http://pl-ott.com:80";
+        const user = "8576200005";
+        const pass = "9637719534";
+        const proxy = "https://api.allorigins.win/get?url=";
+        
+        async function fetchChannels() {
+            const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+            const status = document.getElementById('status');
+            
+            try {
+                const response = await fetch(proxy + encodeURIComponent(api));
+                const json = await response.json();
+                const data = JSON.parse(json.contents);
+
+                if(Array.isArray(data)) {
+                    status.innerText = "Serveur prêt";
+                    render(data);
+                }
+            } catch (e) {
+                status.innerText = "Serveur bloqué";
+                document.getElementById('loader').innerHTML = `
+                    <div class="p-4 text-red-500 text-xs">
+                        Le navigateur bloque la connexion.<br><br>
+                        <strong>ACTION REQUISE :</strong><br>
+                        Appuyez sur le bouton "FORCER LE MODE HTTP" ci-contre.
+                    </div>`;
+            }
+        }
+
+        function render(items) {
+            const list = document.getElementById('list');
+            list.innerHTML = "";
+            items.slice(0, 300).forEach(ch => {
+                const div = document.createElement('div');
+                div.className = "ch-item p-4 flex items-center gap-3 cursor-pointer";
+                div.innerHTML = `<div class="truncate text-sm">${ch.name}</div>`;
+                div.onclick = () => {
+                    const streamUrl = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
+                    play(streamUrl, ch.name);
+                    document.querySelectorAll('.ch-item').forEach(el => el.classList.remove('active-ch'));
+                    div.classList.add('active-ch');
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function play(url, name) {
+            document.getElementById('title').innerText = name;
+            const video = document.getElementById('video');
+            const hlsUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
+
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+            }
+        }
+
+        fetchChannels();
+    </script>
+</body>
+</html>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
