@@ -2,117 +2,155 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>PLEYR TESLA EDITION</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PLEYR ULTRA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        .video-container { width: 100%; aspect-ratio: 16/9; background: #000; }
-        .ch-item { border-bottom: 1px solid #222; transition: 0.2s; }
-        .ch-item:active { background: #333; } /* Meilleur pour écran tactile Tesla */
-        .active { border-left: 4px solid #e11d48; background: #111; }
+        body { background: #000; color: #fff; font-family: sans-serif; }
+        .tesla-scroll::-webkit-scrollbar { width: 8px; }
+        .tesla-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .active-ch { background: #1e1e1e; border-left: 4px solid #ef4444; }
+        #debugLog { font-family: monospace; font-size: 10px; color: #666; background: #0a0a0a; max-height: 100px; overflow-y: auto; }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex flex-col h-screen overflow-hidden">
 
-    <!-- Header Tesla Style -->
-    <div class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-black">
-        <span class="font-black italic text-red-600">PLEYR <span class="text-white">TESLA</span></span>
-        <div id="status" class="text-[10px] text-gray-500 uppercase tracking-widest">Connecté au flux</div>
-    </div>
+    <!-- BARRE DE STATUS & DEBUG -->
+    <div id="debugLog" class="p-2 border-b border-gray-900">Initialisation du système...</div>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- Liste à gauche (plus large pour le tactile) -->
-        <div class="w-1/3 border-r border-gray-800 flex flex-col bg-[#050505]">
-            <div class="p-4">
-                <input type="text" id="search" onkeyup="filter()" placeholder="Rechercher..." class="w-full bg-[#111] rounded-lg p-3 text-sm border border-gray-700 outline-none">
+        <!-- LISTE (60% de l'écran pour faciliter le clic tactile) -->
+        <aside class="w-1/3 flex flex-col border-r border-gray-900 bg-black">
+            <div class="p-4 bg-[#0a0a0a]">
+                <input type="text" id="search" onkeyup="filter()" placeholder="Rechercher une chaîne..." 
+                       class="w-full bg-[#151515] border border-gray-800 rounded-xl p-4 text-lg outline-none focus:border-red-600">
             </div>
-            <div id="list" class="flex-1 overflow-y-auto">
-                <div class="p-10 text-center text-gray-600 text-sm italic">Chargement des chaînes...</div>
+            <div id="list" class="flex-1 overflow-y-auto tesla-scroll">
+                <div class="p-10 text-center animate-pulse text-gray-500">Connexion au serveur...</div>
             </div>
-        </div>
+        </aside>
 
-        <!-- Lecteur à droite -->
-        <div class="flex-1 flex flex-col bg-black">
-            <div class="video-container">
-                <video id="video" controls class="w-full h-full"></video>
+        <!-- LECTEUR -->
+        <main class="flex-1 flex flex-col bg-black">
+            <div class="aspect-video bg-black relative">
+                <video id="video" controls autoplay class="w-full h-full"></video>
             </div>
-            <div class="p-6">
-                <h1 id="title" class="text-2xl font-bold">Sélectionnez une chaîne</h1>
-                <p id="cat" class="text-gray-500 text-sm mt-1">En attente de diffusion...</p>
+            <div class="p-8">
+                <h1 id="title" class="text-3xl font-black italic text-red-600">PLEYR.TV</h1>
+                <p id="cat" class="text-gray-500 font-bold uppercase tracking-widest mt-2">Prêt à diffuser</p>
+                
+                <div class="mt-10 grid grid-cols-2 gap-4">
+                    <button onclick="location.reload()" class="bg-gray-900 p-4 rounded-xl font-bold">RECHARGER</button>
+                    <button onclick="tryAlternativeProxy()" class="bg-red-600/20 text-red-500 p-4 rounded-xl font-bold">AUTRE PROXY</button>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
-        const host = "http://pl-ott.com:80";
-        const user = "8576200005";
-        const pass = "9637719534";
-        const video = document.getElementById('video');
+        const config = {
+            host: "http://pl-ott.com:80",
+            user: "8576200005",
+            pass: "9637719534",
+            proxy: "https://api.allorigins.win/get?url=" // Premier essai
+        };
+
+        const log = (msg) => {
+            const d = document.getElementById('debugLog');
+            d.innerHTML += `<br>> ${msg}`;
+            d.scrollTop = d.scrollHeight;
+        };
+
         let hls = new Hls();
         let allData = [];
 
-        // Proxy spécial Tesla (via Workers)
-        const teslaProxy = "https://corsproxy.io/?";
-
-        async function init() {
-            const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+        async function loadChannels() {
+            log("Tentative de récupération des chaînes...");
+            const api = `${config.host}/player_api.php?username=${config.user}&password=${config.pass}&action=get_live_streams`;
             
             try {
-                const resp = await fetch(teslaProxy + encodeURIComponent(api));
-                const data = await resp.json();
-                allData = data;
-                render(allData);
+                const response = await fetch(config.proxy + encodeURIComponent(api));
+                const json = await response.json();
+                
+                // AllOrigins encapsule dans "contents"
+                const data = typeof json.contents === "string" ? JSON.parse(json.contents) : json;
+
+                if (Array.isArray(data)) {
+                    allData = data;
+                    log(`${data.length} chaînes chargées avec succès.`);
+                    render(allData);
+                } else {
+                    throw new Error("Réponse serveur invalide");
+                }
             } catch (e) {
-                document.getElementById('list').innerHTML = `<div class="p-4 text-red-500">Erreur : Le navigateur Tesla bloque la connexion.</div>`;
+                log(`ERREUR : ${e.message}`);
+                document.getElementById('list').innerHTML = `<div class="p-6 text-red-500 text-sm">Le navigateur Tesla bloque l'accès. Essayez de passer par l'app YouTube pour le plein écran.</div>`;
             }
         }
 
         function render(channels) {
             const container = document.getElementById('list');
             container.innerHTML = "";
-            channels.slice(0, 200).forEach(ch => {
+            channels.slice(0, 300).forEach(ch => {
                 const div = document.createElement('div');
-                div.className = "ch-item p-4 flex items-center gap-4 cursor-pointer";
+                div.className = "p-5 border-b border-gray-900 flex items-center gap-4 cursor-pointer active:bg-gray-900";
                 div.innerHTML = `
-                    <div class="w-10 h-10 bg-gray-900 rounded flex-shrink-0">
-                        <img src="${ch.stream_icon}" class="w-full h-full object-contain" onerror="this.style.display='none'">
+                    <div class="w-12 h-12 bg-gray-950 rounded flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-800">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-gray-800"></i>`}
                     </div>
-                    <div class="truncate text-sm font-medium">${ch.name}</div>
+                    <div class="truncate font-bold text-lg">${ch.name}</div>
                 `;
                 div.onclick = () => {
-                    play(`${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`, ch.name, ch.category_name);
-                    document.querySelectorAll('.ch-item').forEach(el => el.classList.remove('active'));
-                    div.classList.add('active');
+                    play(`${config.host}/live/${config.user}/${config.pass}/${ch.stream_id}.m3u8`, ch.name, ch.category_name);
+                    document.querySelectorAll('.active-ch').forEach(el => el.classList.remove('active-ch'));
+                    div.classList.add('active-ch');
                 };
                 container.appendChild(div);
             });
         }
 
         function play(url, name, category) {
+            log(`Lecture de : ${name}`);
             document.getElementById('title').innerText = name;
             document.getElementById('cat').innerText = category || "Live";
             
-            // On fait passer le flux m3u8 par le proxy pour la Tesla
-            const secureUrl = teslaProxy + encodeURIComponent(url);
-
+            // On tente le flux direct (plus rapide si autorisé)
             if (Hls.isSupported()) {
                 hls.destroy();
-                hls = new Hls();
-                hls.loadSource(secureUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                hls = new Hls({
+                    xhrSetup: function(xhr, url) {
+                        xhr.withCredentials = false;
+                    }
+                });
+                hls.loadSource(url);
+                hls.attachMedia(document.getElementById('video'));
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    log("Manifeste chargé, lecture...");
+                    document.getElementById('video').play();
+                });
+                
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        log("Erreur fatale, tentative via Proxy vidéo...");
+                        hls.loadSource("https://corsproxy.io/?" + encodeURIComponent(url));
+                    }
+                });
             }
         }
 
         function filter() {
             const q = document.getElementById('search').value.toLowerCase();
-            const f = allData.filter(c => c.name.toLowerCase().includes(q));
-            render(f);
+            render(allData.filter(c => c.name.toLowerCase().includes(q)));
         }
 
-        init();
+        function tryAlternativeProxy() {
+            config.proxy = "https://corsproxy.io/?";
+            log("Changement de proxy vers CORS-Proxy...");
+            loadChannels();
+        }
+
+        loadChannels();
     </script>
 </body>
 </html>
