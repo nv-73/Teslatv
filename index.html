@@ -3,113 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLEYR PACKET</title>
+    <title>PLEYR SMARTERS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        .page-btn { background: #111; border: 1px solid #222; padding: 10px 15px; border-radius: 8px; transition: 0.2s; }
-        .page-btn:active { background: #e82127; border-color: #e82127; }
-        .active-page { background: #e82127; border-color: #e82127; font-weight: bold; }
-        .ch-item { background: #080808; border: 1px solid #1a1a1a; margin-bottom: 6px; border-radius: 10px; }
+        .sidebar { width: 320px; background: #050505; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; }
+        .content-list { flex: 1; overflow-y: auto; background: #0a0a0a; scrollbar-width: none; }
+        .item-card { background: #111; border: 1px solid #222; margin: 8px; padding: 15px; border-radius: 12px; cursor: pointer; transition: 0.1s; }
+        .item-card:active { background: #e82127; border-color: #e82127; }
+        .cat-card { background: #1a1a1a; border-left: 4px solid transparent; }
+        .cat-active { border-left: 4px solid #e82127; background: #222; }
+        video { width: 100%; aspect-ratio: 16/9; background: #000; }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex h-screen">
 
-    <header class="h-14 flex items-center justify-between px-6 border-b border-white/5">
-        <div class="font-bold tracking-tighter">PLEYR<span class="text-red-600">PACKET</span></div>
-        <div id="info" class="text-[10px] opacity-50 uppercase tracking-widest">Calcul des paquets...</div>
-    </header>
+    <!-- BARRE DES CATÉGORIES (Sidebar gauche) -->
+    <aside class="sidebar">
+        <div class="p-4 border-b border-white/5">
+            <h1 class="font-black italic text-xl tracking-tighter">PLEYR<span class="text-red-600">SMART</span></h1>
+        </div>
+        <div id="category-list" class="flex-1 overflow-y-auto scrollbar-none">
+            <div class="p-10 text-center opacity-20">Chargement...</div>
+        </div>
+    </aside>
 
-    <div class="flex flex-1 overflow-hidden">
-        <!-- Colonne Gauche -->
-        <aside class="w-[350px] flex flex-col bg-black border-r border-white/5">
-            <div id="list" class="flex-1 overflow-y-auto p-3">
-                <!-- Les 20 chaînes par paquet s'affichent ici -->
+    <!-- LISTE DES CHAÎNES (Milieu) -->
+    <section class="flex-1 flex flex-col border-right border-white/5">
+        <div class="h-14 flex items-center px-6 border-b border-white/5 bg-[#080808]">
+            <input type="text" id="search" oninput="filterChannels()" placeholder="Rechercher..." class="bg-transparent outline-none text-sm w-full">
+        </div>
+        <div id="channel-list" class="content-list">
+            <div class="p-20 text-center text-gray-600 font-bold uppercase tracking-widest text-xs">
+                Sélectionnez une catégorie
             </div>
+        </div>
+    </section>
+
+    <!-- LECTEUR (Droite) -->
+    <main class="w-[45%] flex flex-col bg-black">
+        <video id="v" controls autoplay playsinline></video>
+        <div class="p-8">
+            <h2 id="now-playing" class="text-3xl font-black italic uppercase text-gray-800">Aucun flux</h2>
+            <div id="ch-info" class="mt-4 text-sm text-gray-500 font-bold uppercase tracking-widest"></div>
             
-            <!-- PAGINATION (Les petits paquets) -->
-            <div id="pagination" class="h-16 border-t border-white/5 flex items-center justify-center gap-2 bg-[#050505]">
-                <!-- Boutons de pages -->
+            <div class="mt-20 p-4 border border-white/5 rounded-2xl bg-white/[0.02]">
+                <p class="text-[10px] text-gray-600 leading-relaxed uppercase">
+                    Mode Smart : Chargement par fragments pour processeur Tesla.
+                </p>
             </div>
-        </aside>
-
-        <!-- Player -->
-        <main class="flex-1 flex flex-col">
-            <video id="videoPlayer" class="w-full aspect-video bg-black" controls autoplay></video>
-            <div class="p-6">
-                <h2 id="currentName" class="text-2xl font-bold italic uppercase opacity-20">Prêt</h2>
-            </div>
-        </main>
-    </div>
+        </div>
+    </main>
 
     <script>
-        const CONFIG = {
-            host: "http://pl-ott.com:80",
-            user: "8576200005",
-            pass: "9637719534",
-            proxy: "https://corsproxy.io/?",
-            perPage: 20 // Taille du paquet
-        };
+        const API = { host: "http://pl-ott.com:80", user: "8576200005", pass: "9637719534", proxy: "https://corsproxy.io/?" };
+        let currentChannels = [];
+        const hls = new Hls({ capLevelToPlayerSize: true });
 
-        let allData = [];
-        let currentPage = 0;
-        const hls = new Hls();
-
-        async function init() {
-            const api = `${CONFIG.host}/player_api.php?username=${CONFIG.user}&password=${CONFIG.pass}&action=get_live_streams`;
+        // 1. CHARGER LES CATÉGORIES (Très rapide)
+        async function loadCategories() {
+            const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_categories`;
             try {
-                const r = await fetch(CONFIG.proxy + encodeURIComponent(api));
-                allData = await r.json();
-                document.getElementById('info').innerText = allData.length + " CHAINES";
-                renderPage(0);
-                renderPagination();
-            } catch (e) { console.error(e); }
+                const r = await fetch(API.proxy + encodeURIComponent(url));
+                const data = await r.json();
+                renderCategories(data);
+            } catch (e) { document.getElementById('category-list').innerHTML = "Erreur de chargement"; }
         }
 
-        function renderPage(pageIdx) {
-            currentPage = pageIdx;
-            const start = pageIdx * CONFIG.perPage;
-            const end = start + CONFIG.perPage;
-            const chunk = allData.slice(start, end);
-
-            const list = document.getElementById('list');
-            list.innerHTML = chunk.map(ch => `
-                <div class="ch-item p-4 flex items-center gap-3 cursor-pointer" onclick="play('${ch.stream_id}', '${ch.name.replace(/'/g, " ")}')">
-                    <div class="w-8 h-8 bg-white/5 rounded flex items-center justify-center text-[10px] font-bold text-red-600">
-                        ${ch.stream_id.slice(-2)}
-                    </div>
-                    <div class="truncate text-sm font-bold uppercase">${ch.name}</div>
+        function renderCategories(cats) {
+            const container = document.getElementById('category-list');
+            container.innerHTML = cats.map(c => `
+                <div class="p-4 border-b border-white/5 text-sm font-bold uppercase tracking-tighter cursor-pointer hover:bg-white/5 active:bg-red-600/20" 
+                     onclick="loadChannels('${c.category_id}', this)">
+                    ${c.category_name}
                 </div>
             `).join('');
-            
-            // Update active state of pagination buttons
-            document.querySelectorAll('.page-btn').forEach((btn, idx) => {
-                btn.classList.toggle('active-page', idx === pageIdx);
-            });
-            list.scrollTop = 0;
         }
 
-        function renderPagination() {
-            const nav = document.getElementById('pagination');
-            const totalPages = Math.min(Math.ceil(allData.length / CONFIG.perPage), 8); // On limite à 8 boutons pour la Tesla
+        // 2. CHARGER LES CHAINES D'UNE CATÉGORIE (Petit paquet)
+        async function loadChannels(catId, el) {
+            document.querySelectorAll('#category-list div').forEach(d => d.style.borderLeft = "none");
+            el.style.borderLeft = "4px solid #e82127";
             
-            let html = '';
-            for(let i = 0; i < totalPages; i++) {
-                html += `<button class="page-btn text-xs font-bold" onclick="renderPage(${i})">${i + 1}</button>`;
-            }
-            nav.innerHTML = html;
+            document.getElementById('channel-list').innerHTML = "<div class='p-10 text-center animate-pulse'>Chargement du paquet...</div>";
+            
+            const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_streams&category_id=${catId}`;
+            try {
+                const r = await fetch(API.proxy + encodeURIComponent(url));
+                currentChannels = await r.json();
+                renderChannels(currentChannels);
+            } catch (e) { }
+        }
+
+        function renderChannels(channels) {
+            const container = document.getElementById('channel-list');
+            container.innerHTML = channels.map(ch => `
+                <div class="item-card flex items-center gap-4" onclick="play('${ch.stream_id}', '${ch.name.replace(/'/g, " ")}')">
+                    <div class="w-10 h-10 bg-black rounded flex items-center justify-center border border-white/5">
+                        <i class="fa-solid fa-play text-[10px] opacity-20"></i>
+                    </div>
+                    <div class="font-bold text-sm truncate">${ch.name}</div>
+                </div>
+            `).join('');
         }
 
         function play(id, name) {
-            document.getElementById('currentName').innerText = name;
-            document.getElementById('currentName').style.opacity = 1;
-            const stream = `${CONFIG.proxy}${encodeURIComponent(CONFIG.host + '/live/' + CONFIG.user + '/' + CONFIG.pass + '/' + id + '.m3u8')}`;
-            hls.loadSource(stream);
-            hls.attachMedia(document.getElementById('videoPlayer'));
+            document.getElementById('now-playing').innerText = name;
+            document.getElementById('now-playing').classList.remove('text-gray-800');
+            const streamUrl = `${API.proxy}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
+            
+            hls.loadSource(streamUrl);
+            hls.attachMedia(document.getElementById('v'));
+            hls.on(Hls.Events.MANIFEST_PARSED, () => document.getElementById('v').play());
         }
 
-        init();
+        function filterChannels() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const filtered = currentChannels.filter(c => c.name.toLowerCase().includes(q));
+            renderChannels(filtered);
+        }
+
+        loadCategories();
     </script>
 </body>
 </html>
