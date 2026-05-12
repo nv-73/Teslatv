@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVSTREAM CLONE - TESLA</title>
+    <title>PLEYR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -11,7 +11,6 @@
         :root { --tesla-red: #e82127; --tesla-dark: #000000; --tesla-card: #111111; }
         body { background-color: var(--tesla-dark); color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
         
-        /* Liste style EVStream */
         .channel-list { height: calc(100vh - 80px); overflow-y: auto; scrollbar-width: none; }
         .channel-list::-webkit-scrollbar { display: none; }
         
@@ -24,150 +23,160 @@
         .channel-btn:active { transform: scale(0.98); background: #222; border-color: var(--tesla-red); }
         .channel-btn.active { border-left: 6px solid var(--tesla-red); background: #1a1a1a; }
 
-        .video-container { background: #000; box-shadow: 0 0 50px rgba(0,0,0,1); position: relative; }
-        
-        /* Input style Tesla */
+        .video-container { background: #000; position: relative; width: 100%; aspect-ratio: 16/9; }
         .search-input { background: #181818; border: 1px solid #333; color: white; }
         .search-input:focus { border-color: var(--tesla-red); outline: none; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- Header Style EVStream -->
+    <!-- HEADER STYLE EVSTREAM -->
     <header class="h-16 flex items-center justify-between px-8 border-b border-white/5">
         <div class="flex items-center gap-3">
             <div class="w-2 h-8 bg-red-600 rounded-full"></div>
-            <h1 class="text-xl font-bold tracking-tight uppercase">EV<span class="text-red-600">STREAM</span> <span class="font-light opacity-50 text-sm">CLONE</span></h1>
+            <h1 class="text-xl font-bold tracking-tight uppercase italic">PLEYR<span class="text-red-600">STREAM</span></h1>
         </div>
-        <div id="connection-status" class="text-[10px] font-bold text-green-500 uppercase flex items-center gap-2">
-            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Serveur Actif
+        <div id="connection-status" class="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2">
+            <span class="w-2 h-2 bg-yellow-500 rounded-full"></span> Chargement...
         </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
         
-        <!-- Sidebar Gauche (Liste des chaînes) -->
+        <!-- SIDEBAR GAUCHE (LISTE OPTIMISÉE) -->
         <aside class="w-[400px] flex flex-col border-r border-white/5 bg-[#080808]">
             <div class="p-4">
                 <input type="text" id="search" onkeyup="filterChannels()" placeholder="Rechercher une chaîne..." 
                        class="search-input w-full p-4 rounded-2xl text-lg font-medium">
             </div>
             
-            <div id="list" class="channel-list px-4 pb-20">
-                <!-- Les chaînes arrivent ici -->
-                <div class="mt-20 text-center opacity-30">
+            <div id="list" class="channel-list px-4 pb-24">
+                <!-- Les chaînes s'affichent ici -->
+                <div id="loader" class="mt-20 text-center opacity-30">
                     <i class="fa-solid fa-circle-notch animate-spin text-4xl mb-4"></i>
-                    <p>Chargement de votre playlist...</p>
+                    <p class="text-sm">Récupération des 85 000+ chaînes...</p>
                 </div>
             </div>
         </aside>
 
-        <!-- Player Droite -->
+        <!-- PLAYER DROITE -->
         <main class="flex-1 flex flex-col relative bg-black">
-            <div class="video-container flex-1 flex items-center justify-center">
+            <div class="video-container flex items-center justify-center">
                 <video id="teslaPlayer" class="w-full h-full" controls autoplay playsinline></video>
-                
-                <!-- Overlay si rien n'est chargé -->
                 <div id="video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
-                    <i class="fa-solid fa-play text-6xl text-white/10 mb-4"></i>
-                    <p class="text-gray-500 font-bold uppercase tracking-widest">Sélectionnez un flux</p>
+                    <i class="fa-solid fa-play text-6xl text-white/5 mb-4"></i>
+                    <p class="text-gray-600 font-bold uppercase tracking-widest text-xs">Sélectionnez un flux</p>
                 </div>
             </div>
 
-            <!-- Infos de la chaîne -->
             <div class="h-32 bg-[#0a0a0a] border-t border-white/5 p-6 flex items-center gap-6">
                 <div id="ch-logo" class="w-20 h-20 bg-black rounded-xl border border-white/10 p-2 flex items-center justify-center overflow-hidden">
                     <i class="fa-solid fa-tv text-2xl opacity-10"></i>
                 </div>
                 <div>
-                    <h2 id="ch-name" class="text-2xl font-bold italic truncate w-[500px]">PRÊT À DIFFUSER</h2>
-                    <p id="ch-cat" class="text-gray-500 text-sm font-bold uppercase tracking-tighter">PLEYR MEDIA ENGINE V4</p>
+                    <h2 id="ch-name" class="text-2xl font-bold italic truncate w-[450px]">PRÊT À DIFFUSER</h2>
+                    <p id="ch-cat" class="text-gray-500 text-xs font-bold uppercase tracking-tighter mt-1">Tesla Optimized Engine V4</p>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // Tes accès déjà injectés
-        const API_CONFIG = {
+        const API = {
             host: "http://pl-ott.com:80",
             user: "8576200005",
             pass: "9637719534"
         };
 
-        const PROXY = "https://corsproxy.io/?"; // Tunnel sécurisé indispensable pour Tesla
+        const PROXY = "https://corsproxy.io/?"; 
         const video = document.getElementById('teslaPlayer');
         let hls = new Hls();
         let allChannels = [];
+        let displayedCount = 40; 
 
         async function init() {
-            const apiLink = `${API_CONFIG.host}/player_api.php?username=${API_CONFIG.user}&password=${API_CONFIG.pass}&action=get_live_streams`;
+            const apiLink = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_streams`;
+            const status = document.getElementById('connection-status');
             
             try {
                 const response = await fetch(PROXY + encodeURIComponent(apiLink));
-                const data = await response.json();
+                allChannels = await response.json();
                 
-                if (Array.isArray(data)) {
-                    allChannels = data;
-                    renderChannels(allChannels);
+                if (Array.isArray(allChannels)) {
+                    status.innerHTML = `<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> ${allChannels.length} CHAINES`;
+                    renderChannels(allChannels.slice(0, displayedCount));
                 }
             } catch (err) {
-                document.getElementById('list').innerHTML = `<div class="p-8 text-red-500 font-bold text-center">Erreur de connexion. Vérifiez vos accès ou autorisez le contenu non sécurisé sur la Tesla.</div>`;
+                document.getElementById('list').innerHTML = `<div class="p-8 text-red-500 text-center text-xs">Le serveur ne répond pas. Vérifiez la connexion de la voiture.</div>`;
             }
         }
 
-        function renderChannels(channels) {
+        function renderChannels(channels, append = false) {
             const list = document.getElementById('list');
-            list.innerHTML = "";
+            if (!append) list.innerHTML = "";
 
-            channels.slice(0, 500).forEach(ch => {
-                const streamUrl = `${API_CONFIG.host}/live/${API_CONFIG.user}/${API_CONFIG.pass}/${ch.stream_id}.m3u8`;
+            const fragment = document.createDocumentFragment();
+            channels.forEach(ch => {
+                const streamUrl = `${API.host}/live/${API.user}/${API.pass}/${ch.stream_id}.m3u8`;
                 const btn = document.createElement('div');
                 btn.className = "channel-btn p-5 mb-3 rounded-2xl flex items-center gap-4 cursor-pointer";
                 btn.innerHTML = `
-                    <div class="w-12 h-12 bg-black rounded-lg flex-shrink-0 flex items-center justify-center p-1">
-                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv opacity-20"></i>`}
+                    <div class="w-12 h-12 bg-black rounded-lg flex-shrink-0 flex items-center justify-center p-1 border border-white/5">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain" loading="lazy" onerror="this.parentElement.innerHTML='<i class=fa-solid fa-tv opacity-20></i>'">` : `<i class="fa-solid fa-tv opacity-20"></i>`}
                     </div>
                     <div class="flex-1 truncate">
-                        <div class="font-bold text-lg truncate">${ch.name}</div>
-                        <div class="text-[10px] text-gray-500 font-bold uppercase">${ch.category_name || 'Direct'}</div>
+                        <div class="font-bold text-lg truncate uppercase tracking-tighter">${ch.name}</div>
                     </div>
                 `;
-                btn.onclick = () => playChannel(streamUrl, ch.name, ch.stream_icon, ch.category_name, btn);
-                list.appendChild(btn);
+                btn.onclick = () => playChannel(streamUrl, ch.name, ch.stream_icon, btn);
+                fragment.appendChild(btn);
             });
+            list.appendChild(fragment);
         }
 
-        function playChannel(url, name, icon, cat, element) {
-            // UI Updates
+        // INFINITE SCROLL POUR LA VITESSE
+        document.getElementById('list').addEventListener('scroll', function(e) {
+            const el = e.target;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+                if (displayedCount < allChannels.length) {
+                    const nextBatch = allChannels.slice(displayedCount, displayedCount + 40);
+                    renderChannels(nextBatch, true);
+                    displayedCount += 40;
+                }
+            }
+        });
+
+        function playChannel(url, name, icon, element) {
             document.getElementById('video-placeholder').style.display = 'none';
             document.getElementById('ch-name').innerText = name;
-            document.getElementById('ch-cat').innerText = cat || "LIVE";
             document.getElementById('ch-logo').innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-2xl opacity-10"></i>`;
             
             document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
             element.classList.add('active');
 
-            // On force le passage par le proxy pour que la Tesla accepte le flux HTTP sur une page HTTPS
-            const secureStreamUrl = PROXY + encodeURIComponent(url);
+            const secureUrl = PROXY + encodeURIComponent(url);
 
             if (Hls.isSupported()) {
                 hls.destroy();
-                hls = new Hls({
-                    xhrSetup: function(xhr) { xhr.withCredentials = false; }
+                hls = new Hls({ 
+                    capLevelToPlayerSize: true, 
+                    maxBufferLength: 20, 
+                    enableWorker: true 
                 });
-                hls.loadSource(secureStreamUrl);
+                hls.loadSource(secureUrl);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = secureStreamUrl;
-                video.play();
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
             }
         }
 
         function filterChannels() {
             const q = document.getElementById('search').value.toLowerCase();
-            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(q));
+            if (q.length < 2) {
+                displayedCount = 40;
+                renderChannels(allChannels.slice(0, displayedCount));
+                return;
+            }
+            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(q)).slice(0, 100);
             renderChannels(filtered);
         }
 
