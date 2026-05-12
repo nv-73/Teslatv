@@ -2,155 +2,144 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLEYR ULTRA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLEYR TESLA PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; }
-        .tesla-scroll::-webkit-scrollbar { width: 8px; }
-        .tesla-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        .active-ch { background: #1e1e1e; border-left: 4px solid #ef4444; }
-        #debugLog { font-family: monospace; font-size: 10px; color: #666; background: #0a0a0a; max-height: 100px; overflow-y: auto; }
+        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+        .ch-card { border-bottom: 1px solid #1a1a1a; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
+        .ch-card:active { background: #222; }
+        .active-ch { background: #111; border-left: 5px solid #ff0000; }
+        video::-webkit-media-controls-panel { background-image: linear-gradient(transparent, rgba(0,0,0,0.9)) !important; }
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden">
+<body class="flex flex-col h-screen">
 
-    <!-- BARRE DE STATUS & DEBUG -->
-    <div id="debugLog" class="p-2 border-b border-gray-900">Initialisation du système...</div>
+    <!-- Header Compact -->
+    <div class="h-14 bg-black border-b border-white/10 flex items-center justify-between px-6">
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+            <span class="font-black tracking-tighter text-xl italic">PLEYR<span class="text-red-600">.TV</span></span>
+        </div>
+        <div id="status" class="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Initialisation...</div>
+    </div>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- LISTE (60% de l'écran pour faciliter le clic tactile) -->
-        <aside class="w-1/3 flex flex-col border-r border-gray-900 bg-black">
-            <div class="p-4 bg-[#0a0a0a]">
-                <input type="text" id="search" onkeyup="filter()" placeholder="Rechercher une chaîne..." 
-                       class="w-full bg-[#151515] border border-gray-800 rounded-xl p-4 text-lg outline-none focus:border-red-600">
+        <!-- Sidebar tactile -->
+        <div class="w-1/3 border-r border-white/5 flex flex-col bg-[#050505]">
+            <div class="p-3">
+                <input type="text" id="search" onkeyup="filter()" placeholder="Rechercher..." class="w-full bg-[#111] border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-red-600">
             </div>
-            <div id="list" class="flex-1 overflow-y-auto tesla-scroll">
-                <div class="p-10 text-center animate-pulse text-gray-500">Connexion au serveur...</div>
+            <div id="list" class="flex-1 overflow-y-auto pb-20">
+                <div class="p-10 text-center opacity-20">Chargement...</div>
             </div>
-        </aside>
+        </div>
 
-        <!-- LECTEUR -->
-        <main class="flex-1 flex flex-col bg-black">
-            <div class="aspect-video bg-black relative">
-                <video id="video" controls autoplay class="w-full h-full"></video>
-            </div>
-            <div class="p-8">
-                <h1 id="title" class="text-3xl font-black italic text-red-600">PLEYR.TV</h1>
-                <p id="cat" class="text-gray-500 font-bold uppercase tracking-widest mt-2">Prêt à diffuser</p>
+        <!-- Zone Vidéo -->
+        <div class="flex-1 flex flex-col bg-black relative">
+            <video id="video" controls class="w-full aspect-video bg-black"></video>
+            
+            <div class="p-6">
+                <h1 id="title" class="text-2xl font-bold truncate">Prêt pour la route</h1>
+                <p id="cat" class="text-gray-500 text-xs mt-1 uppercase font-bold tracking-widest">Sélectionnez une chaîne</p>
                 
-                <div class="mt-10 grid grid-cols-2 gap-4">
-                    <button onclick="location.reload()" class="bg-gray-900 p-4 rounded-xl font-bold">RECHARGER</button>
-                    <button onclick="tryAlternativeProxy()" class="bg-red-600/20 text-red-500 p-4 rounded-xl font-bold">AUTRE PROXY</button>
+                <div class="mt-8 p-4 bg-red-600/5 border border-red-600/20 rounded-2xl">
+                    <p class="text-[11px] text-red-500 leading-tight">
+                        <strong>NOTE TESLA :</strong> Si la vidéo ne charge pas, cliquez sur l'icône de cadenas/bouclier dans la barre d'adresse et activez <strong>"Contenu non sécurisé"</strong>.
+                    </p>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script>
-        const config = {
-            host: "http://pl-ott.com:80",
-            user: "8576200005",
-            pass: "9637719534",
-            proxy: "https://api.allorigins.win/get?url=" // Premier essai
-        };
-
-        const log = (msg) => {
-            const d = document.getElementById('debugLog');
-            d.innerHTML += `<br>> ${msg}`;
-            d.scrollTop = d.scrollHeight;
-        };
-
+        const host = "http://pl-ott.com:80";
+        const user = "8576200005";
+        const pass = "9637719534";
+        const video = document.getElementById('video');
         let hls = new Hls();
-        let allData = [];
+        let allChannels = [];
 
-        async function loadChannels() {
-            log("Tentative de récupération des chaînes...");
-            const api = `${config.host}/player_api.php?username=${config.user}&password=${config.pass}&action=get_live_streams`;
+        // Liste de secours des proxys pour forcer le HTTPS
+        const proxy = "https://corsproxy.io/?";
+
+        async function start() {
+            const status = document.getElementById('status');
+            const apiUrl = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
             
             try {
-                const response = await fetch(config.proxy + encodeURIComponent(api));
-                const json = await response.json();
+                // On passe par le proxy pour récupérer la liste
+                const resp = await fetch(proxy + encodeURIComponent(apiUrl));
+                const data = await resp.json();
                 
-                // AllOrigins encapsule dans "contents"
-                const data = typeof json.contents === "string" ? JSON.parse(json.contents) : json;
-
-                if (Array.isArray(data)) {
-                    allData = data;
-                    log(`${data.length} chaînes chargées avec succès.`);
-                    render(allData);
+                if(Array.isArray(data)) {
+                    allChannels = data;
+                    status.innerText = "Serveur en ligne";
+                    render(allChannels);
                 } else {
-                    throw new Error("Réponse serveur invalide");
+                    throw new Error();
                 }
             } catch (e) {
-                log(`ERREUR : ${e.message}`);
-                document.getElementById('list').innerHTML = `<div class="p-6 text-red-500 text-sm">Le navigateur Tesla bloque l'accès. Essayez de passer par l'app YouTube pour le plein écran.</div>`;
+                status.innerText = "Erreur de connexion";
+                document.getElementById('list').innerHTML = "<div class='p-6 text-xs text-center text-gray-500'>Impossible de joindre le serveur IPTV.</div>";
             }
         }
 
-        function render(channels) {
+        function render(items) {
             const container = document.getElementById('list');
             container.innerHTML = "";
-            channels.slice(0, 300).forEach(ch => {
+            items.slice(0, 500).forEach(ch => {
                 const div = document.createElement('div');
-                div.className = "p-5 border-b border-gray-900 flex items-center gap-4 cursor-pointer active:bg-gray-900";
+                div.className = "ch-card p-4 flex items-center gap-4 cursor-pointer";
                 div.innerHTML = `
-                    <div class="w-12 h-12 bg-gray-950 rounded flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-800">
-                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-gray-800"></i>`}
+                    <div class="w-12 h-12 bg-black border border-white/5 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
+                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv opacity-10"></i>`}
                     </div>
-                    <div class="truncate font-bold text-lg">${ch.name}</div>
+                    <div class="min-w-0">
+                        <div class="text-sm font-bold truncate">${ch.name}</div>
+                        <div class="text-[9px] text-gray-500 uppercase font-black mt-1">${ch.category_name || 'Live'}</div>
+                    </div>
                 `;
                 div.onclick = () => {
-                    play(`${config.host}/live/${config.user}/${config.pass}/${ch.stream_id}.m3u8`, ch.name, ch.category_name);
-                    document.querySelectorAll('.active-ch').forEach(el => el.classList.remove('active-ch'));
+                    const streamUrl = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
+                    play(streamUrl, ch.name, ch.category_name);
+                    document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('active-ch'));
                     div.classList.add('active-ch');
                 };
                 container.appendChild(div);
             });
         }
 
-        function play(url, name, category) {
-            log(`Lecture de : ${name}`);
+        function play(url, name, cat) {
             document.getElementById('title').innerText = name;
-            document.getElementById('cat').innerText = category || "Live";
+            document.getElementById('cat').innerText = cat || "DIRECT";
             
-            // On tente le flux direct (plus rapide si autorisé)
+            // On tente d'abord le lien sécurisé via proxy pour la Tesla
+            const secureUrl = proxy + encodeURIComponent(url);
+
             if (Hls.isSupported()) {
                 hls.destroy();
                 hls = new Hls({
-                    xhrSetup: function(xhr, url) {
-                        xhr.withCredentials = false;
-                    }
+                    xhrSetup: function(xhr) { xhr.withCredentials = false; }
                 });
-                hls.loadSource(url);
-                hls.attachMedia(document.getElementById('video'));
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    log("Manifeste chargé, lecture...");
-                    document.getElementById('video').play();
-                });
+                hls.loadSource(secureUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
                 
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        log("Erreur fatale, tentative via Proxy vidéo...");
-                        hls.loadSource("https://corsproxy.io/?" + encodeURIComponent(url));
-                    }
+                // Si le proxy échoue, on tente en direct (nécessite l'autorisation Mixed Content)
+                hls.on(Hls.Events.ERROR, (e, data) => {
+                    if(data.fatal) hls.loadSource(url);
                 });
             }
         }
 
         function filter() {
             const q = document.getElementById('search').value.toLowerCase();
-            render(allData.filter(c => c.name.toLowerCase().includes(q)));
+            render(allChannels.filter(c => c.name.toLowerCase().includes(q)));
         }
 
-        function tryAlternativeProxy() {
-            config.proxy = "https://corsproxy.io/?";
-            log("Changement de proxy vers CORS-Proxy...");
-            loadChannels();
-        }
-
-        loadChannels();
+        start();
     </script>
 </body>
 </html>
