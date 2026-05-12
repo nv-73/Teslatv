@@ -2,234 +2,117 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NV73 - Web TV Player</title>
+    <title>PLEYR TESLA EDITION</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root { --accent: #ff0000; --bg: #050505; --panel: #111111; }
-        body { background-color: var(--bg); color: white; height: 100vh; overflow: hidden; }
-        
-        /* Personnalisation Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        .video-box { aspect-ratio: 16/9; background: #000; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); overflow: hidden; }
-        .sidebar-ch { background: var(--panel); border-right: 1px solid #222; }
-        .ch-card { transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin: 4px 10px; border-radius: 12px; }
-        .ch-card:hover { background: #1a1a1a; transform: scale(1.02); }
-        .ch-active { background: #222 !important; border-left: 3px solid var(--accent); }
-        
-        .modal-blur { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; backdrop-filter: blur(10px); }
-        .input-dark { background: #1a1a1a; border: 1px solid #333; transition: 0.3s; }
-        .input-dark:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 10px rgba(255,0,0,0.2); }
-        
-        .shimmer { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
-        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        .video-container { width: 100%; aspect-ratio: 16/9; background: #000; }
+        .ch-item { border-bottom: 1px solid #222; transition: 0.2s; }
+        .ch-item:active { background: #333; } /* Meilleur pour écran tactile Tesla */
+        .active { border-left: 4px solid #e11d48; background: #111; }
     </style>
 </head>
-<body class="flex flex-col font-sans">
+<body class="flex flex-col h-screen">
 
-    <!-- MODAL CONNEXION -->
-    <div id="loginModal" class="modal-blur flex items-center justify-center">
-        <div class="bg-[#111] p-10 rounded-3xl w-[450px] border border-white/10 shadow-2xl">
-            <div class="flex flex-col items-center mb-8">
-                <div class="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.4)] mb-4">
-                    <i class="fa-solid fa-play text-4xl text-white"></i>
-                </div>
-                <h2 class="text-3xl font-black italic tracking-tighter">CONFIGURER XTREAM</h2>
-            </div>
-            
-            <div class="space-y-4">
-                <input type="text" id="host" placeholder="Ex: http://pl-ott.com:80" class="w-full input-dark p-4 rounded-xl text-sm" value="http://pl-ott.com:80">
-                <input type="text" id="user" placeholder="Username" class="w-full input-dark p-4 rounded-xl text-sm" value="8576200005">
-                <input type="password" id="pass" placeholder="Password" class="w-full input-dark p-4 rounded-xl text-sm" value="9637719534">
-                
-                <button onclick="connectXtream()" id="btnConn" class="w-full bg-red-600 hover:bg-red-700 h-14 rounded-xl font-bold transition flex items-center justify-center gap-3">
-                    <span>LANCER LE FLUX</span>
-                </button>
-                <p class="text-center text-[10px] text-gray-600 uppercase tracking-widest mt-2">Accès direct sécurisé</p>
-            </div>
-        </div>
+    <!-- Header Tesla Style -->
+    <div class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-black">
+        <span class="font-black italic text-red-600">PLEYR <span class="text-white">TESLA</span></span>
+        <div id="status" class="text-[10px] text-gray-500 uppercase tracking-widest">Connecté au flux</div>
     </div>
-
-    <!-- TOPBAR -->
-    <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 bg-black">
-        <div class="flex items-center gap-10">
-            <h1 class="text-2xl font-black tracking-tighter italic text-red-600">PLEYR<span class="text-white">.LIVE</span></h1>
-            <div class="relative hidden lg:block">
-                <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
-                <input type="text" id="search" onkeyup="filterList()" placeholder="Rechercher une chaine..." class="bg-[#111] border-none rounded-full py-2.5 pl-10 pr-6 text-xs w-[350px] focus:ring-1 focus:ring-red-600 transition-all">
-            </div>
-        </div>
-        
-        <div class="flex items-center gap-4">
-            <a href="https://youtube.com" target="_blank" class="text-gray-400 hover:text-white transition"><i class="fa-brands fa-youtube text-xl"></i></a>
-            <button onclick="document.getElementById('loginModal').style.display='flex'" class="bg-white/10 hover:bg-white/20 p-2.5 rounded-xl transition">
-                <i class="fa-solid fa-gear"></i>
-            </button>
-        </div>
-    </header>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- LISTE DES CHAINES -->
-        <aside class="sidebar-ch w-[380px] flex flex-col">
-            <div class="p-5 flex justify-between items-center bg-black/30">
-                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-500">Bouquet Live</h3>
-                <span id="badgeCount" class="bg-red-600/10 text-red-500 px-3 py-1 rounded-full text-[10px] font-bold">0 chaines</span>
+        <!-- Liste à gauche (plus large pour le tactile) -->
+        <div class="w-1/3 border-r border-gray-800 flex flex-col bg-[#050505]">
+            <div class="p-4">
+                <input type="text" id="search" onkeyup="filter()" placeholder="Rechercher..." class="w-full bg-[#111] rounded-lg p-3 text-sm border border-gray-700 outline-none">
             </div>
-            <div id="list" class="flex-1 overflow-y-auto pt-2 pb-10">
-                <!-- Les chaines apparaissent ici -->
-                <div class="p-20 text-center opacity-30">
-                    <i class="fa-solid fa-satellite-dish text-5xl mb-4"></i>
-                    <p class="text-xs">Initialisation requise</p>
-                </div>
+            <div id="list" class="flex-1 overflow-y-auto">
+                <div class="p-10 text-center text-gray-600 text-sm italic">Chargement des chaînes...</div>
             </div>
-        </aside>
+        </div>
 
-        <!-- LECTEUR PRINCIPAL -->
-        <main class="flex-1 p-8 bg-black/20 overflow-y-auto">
-            <div class="max-w-6xl mx-auto">
-                <div class="video-box mb-8">
-                    <video id="player" controls class="w-full h-full"></video>
-                </div>
-
-                <div class="flex items-start gap-8">
-                    <div id="currentLogo" class="w-24 h-24 bg-[#111] border border-white/5 rounded-2xl flex items-center justify-center p-3">
-                        <i class="fa-solid fa-tv text-4xl text-gray-800"></i>
-                    </div>
-                    <div class="flex-1">
-                        <h2 id="currentName" class="text-4xl font-black italic tracking-tighter mb-2">PRÊT À DIFFUSER</h2>
-                        <div class="flex items-center gap-4 text-xs font-bold text-gray-500 uppercase">
-                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span> STREAM EN DIRECT</span>
-                            <span>•</span>
-                            <span id="currentCat">XTREAM API PROTOCOL</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button class="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition flex items-center justify-center"><i class="fa-solid fa-heart"></i></button>
-                        <button class="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition flex items-center justify-center"><i class="fa-solid fa-share-nodes"></i></button>
-                    </div>
-                </div>
+        <!-- Lecteur à droite -->
+        <div class="flex-1 flex flex-col bg-black">
+            <div class="video-container">
+                <video id="video" controls class="w-full h-full"></video>
             </div>
-        </main>
+            <div class="p-6">
+                <h1 id="title" class="text-2xl font-bold">Sélectionnez une chaîne</h1>
+                <p id="cat" class="text-gray-500 text-sm mt-1">En attente de diffusion...</p>
+            </div>
+        </div>
     </div>
 
-  <script>
-        let player = document.getElementById('player');
+    <script>
+        const host = "http://pl-ott.com:80";
+        const user = "8576200005";
+        const pass = "9637719534";
+        const video = document.getElementById('video');
         let hls = new Hls();
-        let allChannels = [];
+        let allData = [];
 
-        window.onload = () => { document.getElementById('loginModal').style.display = 'flex'; };
+        // Proxy spécial Tesla (via Workers)
+        const teslaProxy = "https://corsproxy.io/?";
 
-        async function connectXtream() {
-            let host = document.getElementById('host').value.trim();
-            const user = document.getElementById('user').value.trim();
-            const pass = document.getElementById('pass').value.trim();
-            const btn = document.getElementById('btnConn');
-
-            if(!host || !user || !pass) return alert("Champs manquants");
-            if(host.endsWith('/')) host = host.slice(0, -1);
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> TENTATIVE...';
-
+        async function init() {
             const api = `${host}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
             
-            // Liste de proxys de secours
-            const proxies = [
-                (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-                (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
-                (url) => `https://cors-anywhere.herokuapp.com/${url}`
-            ];
-
-            let success = false;
-
-            for (let getProxy of proxies) {
-                try {
-                    const response = await fetch(getProxy(api));
-                    let data;
-                    
-                    if (getProxy.toString().includes("allorigins")) {
-                        const json = await response.json();
-                        data = JSON.parse(json.contents);
-                    } else {
-                        data = await response.json();
-                    }
-
-                    if (Array.isArray(data)) {
-                        allChannels = data;
-                        renderList(allChannels, host, user, pass);
-                        document.getElementById('loginModal').style.display = 'none';
-                        success = true;
-                        break; 
-                    }
-                } catch (e) {
-                    console.log("Essai proxy suivant...");
-                }
+            try {
+                const resp = await fetch(teslaProxy + encodeURIComponent(api));
+                const data = await resp.json();
+                allData = data;
+                render(allData);
+            } catch (e) {
+                document.getElementById('list').innerHTML = `<div class="p-4 text-red-500">Erreur : Le navigateur Tesla bloque la connexion.</div>`;
             }
-
-            if (!success) {
-                alert("ÉCHEC DE CONNEXION :\n\nLes serveurs proxy sont saturés. \n\nSOLUTION :\n1. Installez l'extension 'Allow CORS' sur Chrome.\n2. Activez-la.\n3. Cliquez à nouveau sur Connexion.");
-            }
-
-            btn.disabled = false;
-            btn.innerHTML = 'LANCER LE FLUX';
         }
 
-        function renderList(channels, host, user, pass) {
-            const listDiv = document.getElementById('list');
-            document.getElementById('badgeCount').innerText = channels.length + " chaines";
-            listDiv.innerHTML = "";
-
-            channels.slice(0, 500).forEach(ch => {
-                // Construction URL Xtream standard
-                const url = `${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`;
-                const card = document.createElement('div');
-                card.className = "ch-card p-4 cursor-pointer flex items-center gap-4 bg-white/[0.02]";
-                card.innerHTML = `
-                    <div class="w-12 h-12 bg-black rounded-lg flex-shrink-0 overflow-hidden border border-white/5 flex items-center justify-center">
-                        ${ch.stream_icon ? `<img src="${ch.stream_icon}" class="w-full h-full object-contain" onerror="this.src=''">` : `<i class="fa-solid fa-tv text-xs opacity-20"></i>`}
+        function render(channels) {
+            const container = document.getElementById('list');
+            container.innerHTML = "";
+            channels.slice(0, 200).forEach(ch => {
+                const div = document.createElement('div');
+                div.className = "ch-item p-4 flex items-center gap-4 cursor-pointer";
+                div.innerHTML = `
+                    <div class="w-10 h-10 bg-gray-900 rounded flex-shrink-0">
+                        <img src="${ch.stream_icon}" class="w-full h-full object-contain" onerror="this.style.display='none'">
                     </div>
-                    <div class="flex-1 min-w-0 text-left">
-                        <div class="text-[13px] font-bold truncate tracking-tight uppercase">${ch.name}</div>
-                        <div class="text-[9px] text-gray-500 font-black mt-1 uppercase">${ch.category_name || 'DIRECT'}</div>
-                    </div>
+                    <div class="truncate text-sm font-medium">${ch.name}</div>
                 `;
-                card.onclick = () => playStream(url, ch.name, ch.stream_icon, ch.category_name);
-                listDiv.appendChild(card);
+                div.onclick = () => {
+                    play(`${host}/live/${user}/${pass}/${ch.stream_id}.m3u8`, ch.name, ch.category_name);
+                    document.querySelectorAll('.ch-item').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                };
+                container.appendChild(div);
             });
         }
 
-        function playStream(url, name, icon, cat) {
-            document.getElementById('currentName').innerText = name;
-            document.getElementById('currentCat').innerText = cat || "LIVE STREAM";
-            const logo = document.getElementById('currentLogo');
-            logo.innerHTML = icon ? `<img src="${icon}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-tv text-4xl text-gray-800"></i>`;
+        function play(url, name, category) {
+            document.getElementById('title').innerText = name;
+            document.getElementById('cat').innerText = category || "Live";
+            
+            // On fait passer le flux m3u8 par le proxy pour la Tesla
+            const secureUrl = teslaProxy + encodeURIComponent(url);
 
             if (Hls.isSupported()) {
                 hls.destroy();
                 hls = new Hls();
-                hls.loadSource(url);
-                hls.attachMedia(player);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => player.play().catch(() => {}));
-            } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
-                player.src = url;
-                player.play();
+                hls.loadSource(secureUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             }
         }
 
-        function filterList() {
+        function filter() {
             const q = document.getElementById('search').value.toLowerCase();
-            const host = document.getElementById('host').value;
-            const user = document.getElementById('user').value;
-            const pass = document.getElementById('pass').value;
-            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(q));
-            renderList(filtered, host, user, pass);
+            const f = allData.filter(c => c.name.toLowerCase().includes(q));
+            render(f);
         }
-       </script>
+
+        init();
+    </script>
 </body>
 </html>
