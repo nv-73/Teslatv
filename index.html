@@ -3,125 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLEYR TURBO</title>
+    <title>INSTANT PLEYR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        .ch-list { height: calc(100vh - 120px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .ch-card { background: #111; border: 1px solid #222; margin-bottom: 8px; border-radius: 12px; transition: 0.1s; }
-        .ch-card:active { background: #222; border-color: #e82127; }
-        .active { border-left: 6px solid #e82127; background: #151515; }
-        #video-container { width: 100%; aspect-ratio: 16/9; background: #000; }
+        body { background: #000; color: #fff; overflow: hidden; font-family: sans-serif; }
+        #list { height: calc(100vh - 120px); overflow-y: auto; overflow-x: hidden; }
+        .ch-row { height: 50px; display: flex; items-center: center; padding: 0 20px; border-bottom: 1px solid #111; cursor: pointer; font-size: 14px; font-weight: bold; text-transform: uppercase; }
+        .ch-row:active { background: #e82127; }
+        .active { background: #1a1a1a; border-left: 4px solid #e82127; }
+        input { background: #111; border: 1px solid #222; outline: none; }
+        input:focus { border-color: #e82127; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-    <header class="h-14 flex items-center justify-between px-6 border-b border-white/5">
-        <h1 class="font-bold tracking-tighter">PLEYR<span class="text-red-600">TURBO</span></h1>
-        <div id="status" class="text-[9px] font-bold opacity-50 uppercase tracking-widest">Initialisation...</div>
+    <header class="h-14 flex items-center px-6 border-b border-white/5 bg-black z-50">
+        <div class="text-red-600 font-black italic tracking-tighter text-xl">FLASH<span class="text-white">TV</span></div>
+        <div id="count" class="ml-auto text-[10px] opacity-40 font-bold">SYSTÈME PRÊT</div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar Ultra-Rapide -->
-        <aside class="w-[380px] flex flex-col bg-[#050505] border-r border-white/5">
-            <div class="p-3">
-                <input type="text" id="search" onkeyup="filter()" placeholder="Recherche instantanée..." 
-                       class="w-full bg-[#151515] border border-white/10 p-4 rounded-xl text-lg outline-none focus:border-red-600">
+        <aside class="w-[350px] flex flex-col bg-black">
+            <div class="p-2">
+                <input type="text" id="search" oninput="search()" placeholder="Taper pour filtrer..." class="w-full p-4 rounded-xl">
             </div>
-            <div id="list" class="ch-list px-3"></div>
+            <div id="list" onscroll="render()"></div>
         </aside>
 
-        <!-- Player -->
-        <main class="flex-1 flex flex-col">
-            <div id="video-container">
-                <video id="v" class="w-full h-full" controls autoplay></video>
+        <main class="flex-1 flex flex-col bg-[#050505]">
+            <video id="v" class="w-full bg-black aspect-video" controls autoplay playsinline></video>
+            <div class="p-8">
+                <h1 id="cur" class="text-3xl font-black italic opacity-20 uppercase">En attente...</h1>
+                <div class="mt-10 flex gap-4">
+                    <button onclick="update()" class="text-[10px] bg-white/5 border border-white/10 px-4 py-2 rounded-lg hover:bg-white/10">MAJ PLAYLIST</button>
+                    <button onclick="localStorage.clear();location.reload()" class="text-[10px] bg-red-600/10 border border-red-600/20 px-4 py-2 rounded-lg text-red-500 font-bold">RESET</button>
+                </div>
             </div>
-            <div class="p-6">
-                <h2 id="ch-title" class="text-2xl font-bold italic">PRÊT</h2>
-                <button onclick="refreshCache()" class="mt-4 text-[10px] text-gray-600 border border-gray-800 px-3 py-1 rounded-full uppercase">Forcer Refresh Playlist</button>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
         const API = { host: "http://pl-ott.com:80", user: "8576200005", pass: "9637719534" };
         const PROXY = "https://corsproxy.io/?";
-        let allChannels = [];
-        let hls = new Hls();
+        let db = [], filtered = [];
+        const listEl = document.getElementById('list');
+        const hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 15 });
 
-        // 1. CHARGEMENT ULTRA-RAPIDE VIA CACHE
-        async function load() {
-            const status = document.getElementById('status');
-            const cached = localStorage.getItem('playlist_cache');
-
-            if (cached) {
-                allChannels = JSON.parse(cached);
-                status.innerText = "Cache chargé (" + allChannels.length + ")";
-                render(allChannels.slice(0, 50)); // Affiche direct le cache
+        // 1. DÉMARRAGE INSTANTANÉ (Cache local)
+        async function start() {
+            const cache = localStorage.getItem('db');
+            if (cache) {
+                db = JSON.parse(cache);
+                filtered = db;
+                document.getElementById('count').innerText = db.length + " CHAINES";
+                render();
+            } else {
+                update();
             }
-
-            // En arrière-plan, on vérifie si mise à jour nécessaire
-            updateFromServer();
         }
 
-        async function updateFromServer() {
+        // 2. MISE À JOUR RAPIDE (Extraction de données minimales)
+        async function update() {
+            document.getElementById('count').innerText = "SYNCHRONISATION...";
             const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_streams`;
             try {
                 const r = await fetch(PROXY + encodeURIComponent(url));
-                const d = await r.json();
-                if (Array.isArray(d)) {
-                    allChannels = d;
-                    localStorage.setItem('playlist_cache', JSON.stringify(d));
-                    document.getElementById('status').innerText = "Sync terminé";
-                    if (!localStorage.getItem('playlist_cache')) render(allChannels.slice(0, 50));
-                }
-            } catch (e) { console.log("Mode hors-ligne ou erreur"); }
+                const data = await r.json();
+                // On ne garde QUE ce qui est vital pour la vitesse
+                db = data.map(ch => ({i: ch.stream_id, n: ch.name}));
+                localStorage.setItem('db', JSON.stringify(db));
+                filtered = db;
+                document.getElementById('count').innerText = db.length + " CHAINES";
+                render();
+            } catch (e) { alert("Erreur réseau"); }
         }
 
-        function render(data, append = false) {
-            const container = document.getElementById('list');
-            if (!append) container.innerHTML = "";
+        // 3. VIRTUAL RENDERING (Affiche seulement 20 lignes au lieu de 85 000)
+        function render() {
+            const scrollTop = listEl.scrollTop;
+            const itemHeight = 50;
+            const startIdx = Math.floor(scrollTop / itemHeight);
+            const endIdx = startIdx + 20;
             
-            const html = data.map(ch => `
-                <div class="ch-card p-4 flex items-center gap-3 cursor-pointer" onclick="play('${ch.stream_id}', '${ch.name.replace(/'/g, "\\'")}', this)">
-                    <div class="w-10 h-10 bg-black rounded flex-shrink-0 flex items-center justify-center border border-white/5 font-bold text-xs text-gray-700">
-                        ${ch.name.substring(0,2)}
+            const visibleItems = filtered.slice(startIdx, endIdx);
+            
+            listEl.innerHTML = `<div style="height:${startIdx * itemHeight}px"></div>` + 
+                visibleItems.map(ch => `
+                    <div class="ch-row" onclick="play('${ch.i}', '${ch.n.replace(/'/g," ")}')">
+                        <span class="truncate">${ch.n}</span>
                     </div>
-                    <div class="truncate font-bold text-sm uppercase">${ch.name}</div>
-                </div>
-            `).join('');
-            
-            container.insertAdjacentHTML('beforeend', html);
+                `).join('') + 
+                `<div style="height:${(filtered.length - endIdx) * itemHeight}px"></div>`;
         }
 
-        function play(id, name, el) {
-            document.getElementById('ch-title').innerText = name;
-            document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-
-            const streamUrl = `${PROXY}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
-            
-            if (Hls.isSupported()) {
-                hls.destroy();
-                hls = new Hls({capLevelToPlayerSize: true, maxBufferLength: 10});
-                hls.loadSource(streamUrl);
-                hls.attachMedia(document.getElementById('v'));
-            }
+        function play(id, name) {
+            document.getElementById('cur').innerText = name;
+            document.getElementById('cur').style.opacity = "1";
+            const stream = `${PROXY}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
+            hls.loadSource(stream);
+            hls.attachMedia(document.getElementById('v'));
         }
 
-        function filter() {
+        function search() {
             const q = document.getElementById('search').value.toLowerCase();
-            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(q)).slice(0, 60);
-            render(filtered);
+            filtered = q.length < 2 ? db : db.filter(ch => ch.n.toLowerCase().includes(q));
+            listEl.scrollTop = 0;
+            render();
         }
 
-        function refreshCache() {
-            localStorage.removeItem('playlist_cache');
-            location.reload();
-        }
-
-        load();
+        start();
     </script>
 </body>
 </html>
