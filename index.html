@@ -3,179 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PLEYR SMARTERS PRO</title>
-    
-    <!-- Scripts & Styles -->
+    <title>PLEYR TESLA FIX</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
-    <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        .sidebar { width: 320px; background: #050505; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; }
+        .sidebar { width: 300px; background: #050505; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; }
         .content-list { flex: 1; overflow-y: auto; background: #0a0a0a; scrollbar-width: none; }
-        .content-list::-webkit-scrollbar { display: none; }
-        
-        .item-card { background: #111; border: 1px solid #222; margin: 8px; padding: 15px; border-radius: 12px; cursor: pointer; transition: 0.1s; }
-        .item-card:active { background: #e82127; border-color: #e82127; }
-        
-        /* Style Video.js pour écran Tesla */
-        .video-js { width: 100% !important; aspect-ratio: 16/9 !important; background-color: #000; }
-        .vjs-big-play-button { top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; border-radius: 50% !important; width: 80px !important; height: 80px !important; line-height: 80px !important; }
-        
-        .category-item { transition: 0.2s; border-left: 4px solid transparent; }
-        .category-active { border-left: 4px solid #e82127; background: rgba(232, 33, 39, 0.1); color: #e82127; }
+        .item-card { background: #111; border: 1px solid #222; margin: 8px; padding: 15px; border-radius: 12px; cursor: pointer; }
+        .item-card:active { background: #e82127; }
+        video { width: 100%; aspect-ratio: 16/9; background: #000; border-bottom: 1px solid #1a1a1a; }
+        .cat-item { padding: 15px; border-bottom: 1px solid #1a1a1a; cursor: pointer; font-size: 11px; font-bold: bold; text-transform: uppercase; }
+        .cat-active { border-left: 4px solid #e82127; background: #111; color: #e82127; }
     </style>
 </head>
 <body class="flex h-screen">
 
-    <!-- BARRE DES CATÉGORIES -->
     <aside class="sidebar">
-        <div class="p-6 border-b border-white/5">
-            <h1 class="font-black italic text-xl tracking-tighter uppercase">PLEYR<span class="text-red-600">SMART</span></h1>
+        <div class="p-4 border-b border-white/5">
+            <h1 class="font-black italic text-xl">PLEYR<span class="text-red-600">TESLA</span></h1>
         </div>
-        <div id="category-list" class="flex-1 overflow-y-auto">
-            <div class="p-10 text-center opacity-20 text-xs tracking-widest">CHARGEMENT...</div>
-        </div>
+        <div id="category-list" class="flex-1 overflow-y-auto"></div>
     </aside>
 
-    <!-- LISTE DES CHAÎNES -->
     <section class="flex-1 flex flex-col border-r border-white/5">
-        <div class="h-16 flex items-center px-6 border-b border-white/5 bg-[#080808]">
-            <i class="fa-solid fa-magnifying-glass text-gray-600 mr-3"></i>
-            <input type="text" id="search" oninput="filterChannels()" placeholder="RECHERCHER UNE CHAÎNE..." class="bg-transparent outline-none text-sm w-full font-bold uppercase tracking-widest">
+        <div class="h-14 flex items-center px-4 border-b border-white/5 bg-[#080808]">
+            <input type="text" id="search" oninput="filterChannels()" placeholder="RECHERCHER..." class="bg-transparent outline-none text-xs w-full">
         </div>
-        <div id="channel-list" class="content-list">
-            <div class="p-20 text-center text-gray-700 font-bold uppercase tracking-[0.3em] text-[10px]">
-                Sélectionnez une catégorie
-            </div>
-        </div>
+        <div id="channel-list" class="content-list"></div>
     </section>
 
-    <!-- LECTEUR (Video.js) -->
-    <main class="w-[48%] flex flex-col bg-black">
-        <div class="bg-black">
-            <video id="tesla-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" playsinline muted></video>
-        </div>
+    <main class="w-[45%] flex flex-col bg-black">
+        <!-- ON REVIENT A UNE BALISE HTML5 SIMPLE MAIS AVEC LE FIX TESLA -->
+        <video id="video" controls autoplay playsinline muted></video>
         
-        <div class="p-8">
-            <div id="live-indicator" class="hidden flex items-center gap-2 mb-2">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-                </span>
-                <span class="text-red-600 font-bold text-[10px] uppercase tracking-widest">En Direct</span>
-            </div>
-            
-            <h2 id="now-playing" class="text-3xl font-black italic uppercase text-white/10">Aucun flux</h2>
-            
-            <div class="mt-12 p-6 border border-white/5 rounded-2xl bg-white/[0.02]">
-                <p class="text-[10px] text-gray-500 leading-relaxed uppercase tracking-widest">
-                    Lecteur : Video.js Engine v8.3.0<br>
-                    Status : <span class="text-green-500">Optimisé pour Tesla Browser</span><br>
-                    Note : La vidéo démarre en <b>MUET</b>. Activez le son sur le lecteur.
+        <div class="p-8 text-center">
+            <h2 id="now-playing" class="text-2xl font-black italic uppercase text-gray-700">Sélectionnez</h2>
+            <div class="mt-10 p-6 border border-red-600/20 rounded-2xl bg-red-600/5">
+                <p class="text-[10px] text-red-500 font-bold leading-relaxed uppercase">
+                    SI MESSAGE D'ERREUR :<br>
+                    1. Cliquez sur l'icône de cadenas à gauche de l'URL (barre d'adresse)<br>
+                    2. Allez dans "Paramètres du site"<br>
+                    3. Autorisez "Contenu non sécurisé" (Insecure Content)<br>
+                    4. Rechargez la page
                 </p>
             </div>
         </div>
     </main>
 
     <script>
-        const API = { 
-            host: "http://pl-ott.com:80", 
-            user: "8576200005", 
-            pass: "9637719534", 
-            proxy: "https://corsproxy.io/?" 
-        };
-
+        const API = { host: "http://pl-ott.com:80", user: "8576200005", pass: "9637719534" };
+        // PROXY DIFFERENT POUR EVITER LE BLOCAGE FORMAT
+        const PROXY = "https://api.allorigins.win/raw?url=";
+        
         let currentChannels = [];
+        let hls = new Hls();
 
-        // Initialisation du lecteur Video.js
-        const player = videojs('tesla-player', {
-            fluid: true,
-            html5: {
-                vhs: { overrideNative: true },
-                nativeAudioTracks: false,
-                nativeVideoTracks: false
-            }
-        });
-
-        // 1. Charger les catégories
         async function loadCategories() {
             const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_categories`;
-            try {
-                const r = await fetch(API.proxy + encodeURIComponent(url));
-                const data = await r.json();
-                renderCategories(data);
-            } catch (e) { 
-                document.getElementById('category-list').innerHTML = "<div class='p-10 text-red-600 text-xs font-bold'>ERREUR DE RÉSEAU</div>"; 
-            }
-        }
-
-        function renderCategories(cats) {
+            const r = await fetch(PROXY + encodeURIComponent(url));
+            const data = await r.json();
             const container = document.getElementById('category-list');
-            container.innerHTML = cats.map(c => `
-                <div class="category-item p-4 border-b border-white/5 text-[11px] font-bold uppercase tracking-tighter cursor-pointer hover:bg-white/5" 
-                     onclick="loadChannels('${c.category_id}', this)">
-                    ${c.category_name}
-                </div>
+            container.innerHTML = data.map(c => `
+                <div class="cat-item" onclick="loadChannels('${c.category_id}', this)">${c.category_name}</div>
             `).join('');
         }
 
-        // 2. Charger les chaines
         async function loadChannels(catId, el) {
-            document.querySelectorAll('.category-item').forEach(d => d.classList.remove('category-active'));
-            el.classList.add('category-active');
-            
-            const listContainer = document.getElementById('channel-list');
-            listContainer.innerHTML = "<div class='p-10 text-center animate-pulse text-[10px] tracking-widest opacity-30'>CHARGEMENT...</div>";
-            
+            document.querySelectorAll('.cat-item').forEach(i => i.classList.remove('cat-active'));
+            el.classList.add('cat-active');
             const url = `${API.host}/player_api.php?username=${API.user}&password=${API.pass}&action=get_live_streams&category_id=${catId}`;
-            try {
-                const r = await fetch(API.proxy + encodeURIComponent(url));
-                currentChannels = await r.json();
-                renderChannels(currentChannels);
-            } catch (e) { 
-                listContainer.innerHTML = "<div class='p-10 text-center text-xs'>ERREUR</div>"; 
-            }
+            const r = await fetch(PROXY + encodeURIComponent(url));
+            currentChannels = await r.json();
+            render(currentChannels);
         }
 
-        function renderChannels(channels) {
+        function render(data) {
             const container = document.getElementById('channel-list');
-            container.innerHTML = channels.map(ch => `
+            container.innerHTML = data.map(ch => `
                 <div class="item-card flex items-center gap-4" onclick="play('${ch.stream_id}', '${ch.name.replace(/'/g, " ")}')">
-                    <div class="w-10 h-10 bg-black rounded flex items-center justify-center border border-white/5 shadow-inner">
-                        <i class="fa-solid fa-play text-[10px] text-red-600 opacity-50"></i>
-                    </div>
-                    <div class="font-bold text-xs truncate uppercase tracking-tight">${ch.name}</div>
+                    <div class="font-bold text-xs truncate uppercase">${ch.name}</div>
                 </div>
             `).join('');
         }
 
-        // 3. Lancer la lecture
         function play(id, name) {
             document.getElementById('now-playing').innerText = name;
-            document.getElementById('now-playing').classList.replace('text-white/10', 'text-white');
-            document.getElementById('live-indicator').classList.remove('hidden');
-
-            const streamUrl = `${API.proxy}${encodeURIComponent(API.host + '/live/' + API.user + '/' + API.pass + '/' + id + '.m3u8')}`;
+            document.getElementById('now-playing').style.color = "white";
             
-            player.src({
-                src: streamUrl,
-                type: 'application/x-mpegURL'
-            });
+            // CONSTRUCTION DE L'URL DIRECTE (SANS .M3U8 PARFOIS CA AIDE)
+            const streamUrl = `${API.host}/live/${API.user}/${API.pass}/${id}.m3u8`;
+            const proxiedUrl = "https://corsproxy.io/?" + encodeURIComponent(streamUrl);
+            
+            const video = document.getElementById('video');
 
-            player.ready(function() {
-                player.play().catch(e => {
-                    console.log("Lecture automatique bloquée, cliquez sur Play.");
+            if (Hls.isSupported()) {
+                hls.destroy();
+                hls = new Hls();
+                hls.loadSource(proxiedUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play();
                 });
-            });
+            } 
+            // Support pour navigateur qui lit le HLS nativement (comme certains firmwares Tesla)
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = proxiedUrl;
+                video.play();
+            }
         }
 
         function filterChannels() {
             const q = document.getElementById('search').value.toLowerCase();
-            const filtered = currentChannels.filter(c => c.name.toLowerCase().includes(q));
-            renderChannels(filtered);
+            render(currentChannels.filter(c => c.name.toLowerCase().includes(q)));
         }
 
         loadCategories();
