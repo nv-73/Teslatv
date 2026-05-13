@@ -1,104 +1,81 @@
 <!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TeslaTV</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
-      font-weight: bold;
-    }
-
-    .player {
-      flex: 1;
-      background: black;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: black;
-    }
-  </style>
-</head>
-<body>
-
-<div class="app">
-
-  <div class="sidebar">
-    <div class="logo">TeslaTV</div>
-
-    <div class="channel" onclick="playChannel(channels[0])">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg">
-      <div class="channel-name">NASA TV</div>
-    </div>
-
-    <div class="channel" onclick="playChannel(channels[1])">
-      <img src="https://assets.bwbx.io/s3/javelin/public/javelin/images/favicon-32x32.png">
-      <div class="channel-name">Bloomberg</div>
-    </div>
-
-  </div>
-
-  <div class="player">
-    <video id="video" controls autoplay playsinline></video>
-  </div>
-
-</div>
 
 <script>
 
-const channels = [
-  {
-    name: 'NASA TV',
-    url: 'https://ntv1.edgesuite.net/ntv1/playlist.m3u8'
-  },
-  {
-    name: 'Bloomberg',
-    url: 'https://liveproduseast.global.ssl.fastly.net/btv/desktop/us_live.m3u8'
-  }
-]
+// ⚠️ IMPORTANT : ne jamais exposer des identifiants sensibles en production publique
+const M3U_URL = "http://pl-ott.com/get.php?username=8576200005&password=9637719534&output=ts&type=m3u_plus"
 
 const video = document.getElementById('video')
+const list = document.getElementById('list')
+
+let channels = []
+let hlsInstance = null
+
+async function loadPlaylist() {
+  try {
+    const res = await fetch(M3U_URL)
+    const text = await res.text()
+
+    channels = parseM3U(text)
+    renderList()
+    playChannel(channels[0])
+
+  } catch (e) {
+    list.innerHTML = "Erreur chargement playlist"
+    console.error(e)
+  }
+}
+
+function parseM3U(data) {
+  const lines = data.split('
+')
+  const result = []
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const name = lines[i].split(',')[1] || 'Unknown'
+      const url = lines[i + 1]
+      if (url && url.startsWith('http')) {
+        result.push({ name, url })
+      }
+    }
+  }
+
+  return result
+}
+
+function renderList() {
+  list.innerHTML = ''
+
+  channels.forEach((ch, i) => {
+    const div = document.createElement('div')
+    div.className = 'channel'
+    div.innerHTML = `<div class="channel-name">${ch.name}</div>`
+    div.onclick = () => playChannel(ch)
+    list.appendChild(div)
+  })
+}
 
 function playChannel(channel) {
 
-  if (window.hls) {
-    window.hls.destroy()
+  if (hlsInstance) {
+    hlsInstance.destroy()
+    hlsInstance = null
   }
 
   if (Hls.isSupported()) {
 
-    const hls = new Hls({
-      lowLatencyMode: true,
-    })
+    hlsInstance = new Hls({ lowLatencyMode: true })
 
-    window.hls = hls
-
-    hls.loadSource(channel.url)
-    hls.attachMedia(video)
+    hlsInstance.loadSource(channel.url)
+    hlsInstance.attachMedia(video)
 
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-
     video.src = channel.url
-
   }
 }
 
-playChannel(channels[0])
+loadPlaylist()
 
 </script>
 
